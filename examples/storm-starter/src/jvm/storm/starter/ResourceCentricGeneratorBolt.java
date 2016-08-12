@@ -115,9 +115,11 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     int pos = routingTable.route(key);
                     int targetTaskId = downStreamTaskIds.get(pos);
 
-                    if (count % puncutationGenrationFrequency == 0) {
-                        _collector.emitDirect(targetTaskId, ResourceCentricZipfComputationTopology.PuncutationEmitStream, new Values(count, taskId));
+                    if(enableMannualACK) {
+                        if (count % puncutationGenrationFrequency == 0) {
+                            _collector.emitDirect(targetTaskId, ResourceCentricZipfComputationTopology.PuncutationEmitStream, new Values(count, taskId));
 //                         Slave.getInstance().logOnMaster(String.format("PUNC %d is sent to %d", count, targetTaskId));
+                        }
                     }
 
 
