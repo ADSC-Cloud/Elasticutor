@@ -108,6 +108,7 @@ public class MyWordCount {
                     "guided by the two goals of preserving the free status of all derivatives of our free" +
                     "software and of promoting the sharing and reuse of software generally";
 
+
             _dictionary.addAll(Arrays.asList(wordset.split(" ")));
 //            _dictionary.add("One");
 //            _dictionary.add("Two");

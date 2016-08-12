@@ -40,6 +40,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     private int taskIndex;
     int _prime;
 
+    final boolean enableMannualACK = false;
 
     final private int puncutationGenrationFrequency = 400;
     final private int numberOfPendingTuple = 2000;
@@ -94,9 +95,12 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     while (count >= progressPermission && !terminating) {
                         Thread.sleep(1);
                     }
-                    while (count >= currentPuncutationLowWaterMarker + numberOfPendingTuple && !terminating) {
-                        Thread.sleep(1);
-                    }
+
+                    if(enableMannualACK)
+                        while (count >= currentPuncutationLowWaterMarker + numberOfPendingTuple && !terminating) {
+                            Thread.sleep(1);
+                        }
+
                     if (terminating) {
                         terminated = true;
                         terminating = false;
@@ -104,31 +108,10 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     }
                     Random random = new Random();
 
-                    //    Slave.getInstance().logOnMaster("Time:"+String.valueOf(_sleepTimeInMilics));
-                    //   long BeforeSleep = System.currentTimeMillis();
                     Thread.sleep(_emit_cycles);
-                    //    long AfterSleep = System.currentTimeMillis();
-                    //    Slave.getInstance().logOnMaster("Sleep_Time:"+String.valueOf(AfterSleep-BeforeSleep));
-                    //  Thread.sleep(_sleepTimeInMilics);
                     int key = _distribution.sample();
-//                    System.out.println("key");
-//                    System.out.println(key);
-//                    _prime = primes[random.nextInt(primes.length)];
                     key = ((key + _prime) * 577) % 13477;
 
-//                    if(count%10!=0) {
-//                        key = 1024;
-//                    }
-                 /*   if(count == 0){
-                        start = System.currentTimeMillis();
-                    }
-                    ++count;
-                    if(count == 1000){
-                        end = System.currentTimeMillis();
-                        Slave.getInstance().logOnMaster("1000:"+String.valueOf(end-start));
-                        count %= 1000;
-                    //    start = System.currentTimeMillis();
-                    }*/
                     int pos = routingTable.route(key);
                     int targetTaskId = downStreamTaskIds.get(pos);
 

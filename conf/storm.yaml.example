@@ -50,4 +50,9 @@
 
 
 ## Elastic Configures
-# elasticity.slave.ip: "10.11.1.25"
+
+# elasticity.slave.ip: "10.21.25.204"
+# elasticity.EnableIntraExecutorLoadBalancing: 1
+# elasticity.EnableAutomaticScaling: 1
+# elasticity.IntraExecutorLoadBalancingCycle: 3000
+

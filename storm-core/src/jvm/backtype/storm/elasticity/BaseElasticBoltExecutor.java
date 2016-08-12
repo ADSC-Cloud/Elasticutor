@@ -262,8 +262,8 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             ExecutorParallelismPredictor predictor = new LoadBalancingAwarePredictor();
 
 
-            int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad);
-            Slave.getInstance().sendMessageToMaster(String.format("Task %d: input rate=%.5f rate per task=%.5f latency: %.5f ms performance factor=%.2f", _taskId, inputRate, processingRatePerProcessor, averageLatency / 1000000.0, ElasticScheduler.getPerformanceFactor(balancedHashRouting)));
+            final int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad);
+//            Slave.getInstance().sendMessageToMaster(String.format("Task %d: input rate=%.5f rate per task=%.5f latency: %.5f ms performance factor=%.2f", _taskId, inputRate, processingRatePerProcessor, averageLatency / 1000000.0, ElasticScheduler.getPerformanceFactor(balancedHashRouting)));
             return desirableParallelism;
         } catch (Exception e) {
             e.printStackTrace();

@@ -40,7 +40,6 @@ public class ThroughputForRoutes implements Serializable {
         for(int route: routeToThroughput.keySet()) {
             if(routeToUpdateTime.get(route)!=null && System.currentTimeMillis() - routeToUpdateTime.get(route) <= threshold) {
                 throughput += routeToThroughput.get(route);
-                Slave.getInstance().sendMessageToMaster(String.format("[%d:] %f", route, routeToThroughput.get(route)));
             }
         }
         return throughput;

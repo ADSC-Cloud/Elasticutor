@@ -1001,7 +1001,7 @@ public class ElasticTaskHolder {
             System.out.println("Remote " + taskid + "." + route + "has been withdrawn!");
             _slaveActor.sendMessageToMaster("Remote " + taskid + "." + route + "has been withdrawn!");
             SubtaskWithdrawTimer.getInstance().terminated();
-            _slaveActor.sendMessageToMaster(SubtaskWithdrawTimer.getInstance().toString());
+//            _slaveActor.sendMessageToMaster(SubtaskWithdrawTimer.getInstance().toString());
             String originalHost = routeIdToRemoteHost.get(new RouteId(taskid, route));
             routeIdToRemoteHost.remove(new RouteId(taskid, route));
             _taskidRouteToConnection.remove(taskid + "." + route);
@@ -1621,7 +1621,7 @@ public class ElasticTaskHolder {
         }
         return Status.OK();
     } 
-    public String handleScalingOutSubtaskCommand(int taskId){
+    public Status handleScalingOutSubtaskCommand(int taskId){
         try {
             System.out.println("Begin to handle scaling out subtask command!");
             SmartTimer.getInstance().start("ScalingOut", "Create Empty subtask");
@@ -1728,12 +1728,12 @@ public class ElasticTaskHolder {
             sendMessageToMaster(shardMovements);
             sendMessageToMaster("Current DOP: " + balancedHashRouting.getRoutes().size());
             System.out.println("Scaling out command is handed. The current Dop is " + balancedHashRouting.getRoutes().size());
-            return "Succeed!";
+            return Status.OK();
 
         } catch (Exception e) {
             e.printStackTrace();
             sendMessageToMaster(e.getMessage());
-            return e.getMessage();
+            return Status.Error(e.getMessage());
         }
 
     }
@@ -1786,9 +1786,9 @@ public class ElasticTaskHolder {
                         for(int taskId: _bolts.keySet()) {
                             int currentParallelism = _bolts.get(taskId).getCurrentParallelism();
                             int desirableParallelism = _bolts.get(taskId).getDesirableParallelism();
-                            sendMessageToMaster("Task: " + taskId + " average latency: " + _bolts.get(taskId).getMetrics().getAverageLatency());
-                            sendMessageToMaster("Task: " + taskId + " rate: " + _bolts.get(taskId).getInputRate());
-                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" + desirableParallelism);
+//                            sendMessageToMaster("Task: " + taskId + " average latency: " + _bolts.get(taskId).getMetrics().getAverageLatency());
+//                            sendMessageToMaster("Task: " + taskId + " rate: " + _bolts.get(taskId).getInputRate());
+//                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" + desirableParallelism);
                             if(currentParallelism < desirableParallelism) {
                                 ExecutorScalingOutRequestMessage requestMessage = new ExecutorScalingOutRequestMessage(taskId);
                                 _slaveActor.sendMessageObjectToMaster(requestMessage);

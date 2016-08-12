@@ -7,6 +7,7 @@ import akka.cluster.Member;
 import akka.cluster.MemberStatus;
 import backtype.storm.elasticity.ElasticTaskHolder;
 import backtype.storm.elasticity.message.actormessage.*;
+import backtype.storm.elasticity.message.actormessage.Status;
 import backtype.storm.elasticity.resource.ResourceMonitor;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.utils.ConfigReader;
@@ -194,7 +195,12 @@ public class Slave extends UntypedActor {
 
             } else if (message instanceof RemoteRouteWithdrawCommand) {
                 RemoteRouteWithdrawCommand withdrawCommand = (RemoteRouteWithdrawCommand) message;
-                handleWithdrawRemoteElasticTasks(withdrawCommand);
+                try {
+                    handleWithdrawRemoteElasticTasks(withdrawCommand);
+                    getSender().tell(Status.OK(), getSelf());
+                } catch (Exception e) {
+                    getSender().tell(Status.Error(e.getMessage()), getSelf());
+                }
             } else if (message instanceof String) {
                 System.out.println("I received message " + message);
                 sendMessageToMaster("I received message " + message);
@@ -237,9 +243,6 @@ public class Slave extends UntypedActor {
             } else if (message instanceof ScalingOutSubtaskCommand) {
                 System.out.println("ScalingOutSubtaskCommand response will be sent!");
                 getSender().tell(ElasticTaskHolder.instance().handleScalingOutSubtaskCommand(((ScalingOutSubtaskCommand) message).taskId), getSelf());
-//                getSender().tell(ElasticTaskHolder.instance().handleScalingOutSubtaskCommand(((ScalingOutSubtaskCommand) message).taskId), getSelf());
-//                getSender().tell(ElasticTaskHolder.instance().handleScalingOutSubtaskCommand(((ScalingOutSubtaskCommand) message).taskId), getSelf());
-//                sendMessageToMaster("ScalingOutSubtaskCommand has been sent!");
                 System.out.println("ScalingOutSubtaskCommand response is sent!");
             } else if (message instanceof ScalingInSubtaskCommand) {
                 System.out.println("ScalingInSubtaskCommand response will be sent!");
@@ -402,12 +405,8 @@ public class Slave extends UntypedActor {
         }
     }
 
-    private void handleWithdrawRemoteElasticTasks(RemoteRouteWithdrawCommand withdrawCommand) {
-        try {
-            ElasticTaskHolder.instance().withdrawRemoteElasticTasks( withdrawCommand.taskId, withdrawCommand.route);
-        } catch (Exception e) {
-            sendMessageToMaster(e.getMessage());
-        }
+    private void handleWithdrawRemoteElasticTasks(RemoteRouteWithdrawCommand withdrawCommand) throws Exception {
+        ElasticTaskHolder.instance().withdrawRemoteElasticTasks( withdrawCommand.taskId, withdrawCommand.route);
     }
 
     static public Slave createActor(String name, String port) {

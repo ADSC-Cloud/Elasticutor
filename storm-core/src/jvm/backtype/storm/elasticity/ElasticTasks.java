@@ -432,7 +432,7 @@ public class ElasticTasks implements Serializable {
 
 
     public void terminateGivenQuery(int route) {
-        ElasticTaskHolder.instance().sendMessageToMaster("Terminating "+_taskID+"."+route + " (" + _queues.get(route).size() + " pending elements)"+" ...");
+//        ElasticTaskHolder.instance().sendMessageToMaster("Terminating "+_taskID+"."+route + " (" + _queues.get(route).size() + " pending elements)"+" ...");
         _queryRunnables.get(route).terminate();
         try {
             _queryThreads.get(route).join();
