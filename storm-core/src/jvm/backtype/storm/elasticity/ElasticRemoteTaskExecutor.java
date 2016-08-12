@@ -128,7 +128,6 @@ public class ElasticRemoteTaskExecutor {
                                     PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.taskId, token.routeId);
                                     System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.taskId, token.routeId));
                                     ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.taskId).send(token.taskId, SerializationUtils.serialize(message));
-
                                 }
                             }).start();
                         } else {

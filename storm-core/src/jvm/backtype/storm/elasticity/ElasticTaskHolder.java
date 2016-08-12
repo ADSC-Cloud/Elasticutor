@@ -102,9 +102,9 @@ public class ElasticTaskHolder {
 
     Map<String, Semaphore> _taskidRouteToStateWaitingSemaphore = new ConcurrentHashMap<>();
 
-    Map<String, Semaphore> _taskIdRouteToSendingWaitingSemaphore = new ConcurrentHashMap<>();
+//    Map<String, Semaphore> _taskIdRouteToSendingWaitingSemaphore = new ConcurrentHashMap<>();
 
-    Map<Integer, Map<Integer, Semaphore>> _taskIdToRouteToSendingWaitingSemaphore = new HashMap<>();
+    Map<Integer, Map<Integer, Semaphore>> _taskIdToRouteToSendingWaitingSemaphore = new ConcurrentHashMap<>();
 
     Map<String, Semaphore> _taskIdRouteToCleanPendingTupleSemaphore = new ConcurrentHashMap<>();
 
@@ -155,7 +155,7 @@ public class ElasticTaskHolder {
 
     public void registerElasticBolt(BaseElasticBoltExecutor bolt, int taskId) {
         _bolts.put(taskId, bolt);
-        _taskIdToRouteToSendingWaitingSemaphore.put(taskId, new HashMap<Integer, Semaphore>());
+        _taskIdToRouteToSendingWaitingSemaphore.put(taskId, new ConcurrentHashMap<Integer, Semaphore>());
         _slaveActor.registerOriginalElasticTaskToMaster(taskId);
         createQueueUtilizationMonitoringThread(_sendingQueue, "Sending Queue", Config.ElasticTaskHolderOutputQueueCapacity, 0.9, null);
         LOG.info("A new ElasticTask is registered." + taskId);
@@ -277,7 +277,7 @@ public class ElasticTaskHolder {
 
             _originalTaskIdToRemoteTaskExecutor.put(message._elasticTask.get_taskID(), remoteTaskExecutor);
 
-            _taskIdToRouteToSendingWaitingSemaphore.put(message._elasticTask.get_taskID(), new HashMap<Integer, Semaphore>());
+            _taskIdToRouteToSendingWaitingSemaphore.put(message._elasticTask.get_taskID(), new ConcurrentHashMap<Integer, Semaphore>());
 
             System.out.println("ElasticRemoteTaskExecutor is added to the map!");
             remoteTaskExecutor.prepare(message.state);
@@ -336,7 +336,8 @@ public class ElasticTaskHolder {
                         ArrayList<ITaskMessage> drainer = new ArrayList<>();
                         ITaskMessage firstMessage = _sendingQueue.take();
                         drainer.add(firstMessage);
-                        _sendingQueue.drainTo(drainer, 2048);
+//                        _sendingQueue.drainTo(drainer, 2048);
+                        _sendingQueue.drainTo(drainer);
 
                         for(ITaskMessage message: drainer) {
     //                        System.out.println("sending...");
@@ -361,7 +362,7 @@ public class ElasticTaskHolder {
                                     TaskMessage taskMessage = new TaskMessage(remoteTupleExecuteResult._originalTaskID, bytes);
                                     insertToConnectionToTaskMessageArray(iConnectionNameToTaskMessageArray, connectionNameToIConnection, _originalTaskIdToExecutorResultConnection.get(remoteTupleExecuteResult._originalTaskID), taskMessage);
 
-                                    LOG.debug("RemoteTupleExecutorResult is send back!");
+//                                    LOG.debug("RemoteTupleExecutorResult is send back!");
                                 } else {
     //                                System.err.println("RemoteTupleExecuteResult will be ignored, because we cannot find the connection for tasks " + remoteTupleExecuteResult._originalTaskID);
                                 }
@@ -764,14 +765,18 @@ public class ElasticTaskHolder {
         if(_bolts.containsKey(taskId)) {
             if(_bolts.get(taskId).get_elasticTasks().get_routingTable().getRoutes().contains(routeId)) {
 //                sendMessageToMaster("Waiting for pending tuples to be cleaned!");
+                System.out.println("Waiting for pending tuples to be cleaned!");
                 _bolts.get(taskId).get_elasticTasks().makesSureNoPendingTuples(routeId);
+                System.out.println("Waiting tuples are cleaned!");
 //                sendMessageToMaster("Waiting tuples are cleaned!");
             } else {
                 _taskIdRouteToCleanPendingTupleSemaphore.put(taskId + "." + routeId, new Semaphore(0));
                 _sendingQueue.put(new CleanPendingTupleToken(taskId, routeId));
+                System.out.println("Waiting for pending tuples to be cleaned [Remote]!");
 //                sendMessageToMaster("Waiting for pending tuples to be cleaned [Remote]!");
                 _taskIdRouteToCleanPendingTupleSemaphore.get(taskId+"."+routeId).acquire();
                 _taskIdRouteToCleanPendingTupleSemaphore.remove(taskId + "." + routeId);
+                System.out.println("Waiting tuples are cleaned [Remote]!");
 //                sendMessageToMaster("Waiting tuples are cleaned [Remote]!");
             }
         }
@@ -1260,8 +1265,8 @@ public class ElasticTaskHolder {
 
     public boolean waitIfStreamToTargetSubtaskIsPaused(int targetTask, int route) {
 //        System.out.println("waitIfStreamToTargetSubtaskIsPaused!");
-        String key = targetTask+"."+route;
         if(_taskIdToRouteToSendingWaitingSemaphore.get(targetTask).containsKey(route)) {
+            final String key = targetTask+"."+route;
             try {
                 System.out.println("Sending stream to " + targetTask + "." + route + " is paused. Waiting for resumption!");
 //                _taskIdRouteToSendingWaitingSemaphore.get(key).acquire();

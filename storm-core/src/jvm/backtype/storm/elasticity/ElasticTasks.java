@@ -158,7 +158,9 @@ public class ElasticTasks implements Serializable {
                     return false;
                 }
 
-//                System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, originalRoute));
+                if(new Random().nextInt(5000)==0)
+                    System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, originalRoute));
+                
                 RemoteTuple remoteTuple = new RemoteTuple(_taskID, originalRoute, tuple);
 
                 try {
@@ -169,7 +171,8 @@ public class ElasticTasks implements Serializable {
                 return true;
             } else {
                 try {
-//                System.out.println("A tuple is route to "+route+ "by the routing table!");
+                    if(new Random().nextInt(5000)==0)
+                        System.out.println("A tuple is route to "+route+ " by the routing table!");
                     _queues.get(route).put(tuple);
 //                System.out.println("A tuple is inserted into the processing queue!");
                 } catch (InterruptedException e) {
