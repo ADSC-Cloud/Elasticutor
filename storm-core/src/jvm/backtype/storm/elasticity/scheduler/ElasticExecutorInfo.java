@@ -1,7 +1,6 @@
 package backtype.storm.elasticity.scheduler;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * The basic information of an elastic executor.
@@ -14,13 +13,18 @@ public class ElasticExecutorInfo {
     List<String> allocatedCores;
     int desirableParallelism;
 
-    ElasticExecutorInfo(int taskId, String hostIp) {
+    public ElasticExecutorInfo(int taskId, String hostIp) {
+        this(taskId, hostIp, 0, 0.0);
+    }
+
+    public ElasticExecutorInfo(int taskId, String hostIp, long stateSize, double dataIntensivenessFactor) {
         this.taskId = taskId;
         this.hostIp = hostIp;
-        stateSize = 0;
-        dataIntensivenessFactor = 0;
+        this.stateSize = stateSize;
+        this.dataIntensivenessFactor = dataIntensivenessFactor;
         allocatedCores = new ArrayList<>();
         allocatedCores.add(hostIp);
+
     }
 
     public void updateStateSize(long stateSize) {
@@ -54,5 +58,54 @@ public class ElasticExecutorInfo {
     public void updateDesirableParallelism(int desirableParallelism) {
         this.desirableParallelism = desirableParallelism;
         System.out.println(String.format("Desirable DOP of Task %d is %d.", taskId, desirableParallelism));
+    }
+
+    public int getCurrentParallelism() {
+        return allocatedCores.size();
+    }
+
+    public int getDesirableParallelism() {
+        return desirableParallelism;
+    }
+
+    public double getDataIntensiveness() {
+        return dataIntensivenessFactor;
+    }
+
+    public String toString() {
+        String ret = "";
+        ret += String.format("%d, %d, %.2f", taskId, stateSize, dataIntensivenessFactor);
+//        ret += String.format("ID = %d, State size = %d, Data-intensiveness = %.2f", taskId, stateSize, dataIntensivenessFactor);
+
+        return ret;
+    }
+
+    static public Comparator<ElasticExecutorInfo> createDataIntensivenessComparator() {
+        return new Comparator<ElasticExecutorInfo>() {
+            @Override
+            public int compare(ElasticExecutorInfo o1, ElasticExecutorInfo o2) {
+                return Double.compare(o1.dataIntensivenessFactor, o2.dataIntensivenessFactor);
+            }
+        };
+    }
+
+    @Override
+    public int hashCode() {
+        return new Integer(taskId).hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof ElasticExecutorInfo && ((ElasticExecutorInfo) obj).taskId == taskId;
+    }
+    public static void main(String[] args) {
+        Set<ElasticExecutorInfo> infos = new HashSet<>();
+        infos.add(new ElasticExecutorInfo(10, "ip1", 10, 4.2));
+        infos.add(new ElasticExecutorInfo(12, "ip3", 10, 3.2));
+        infos.add(new ElasticExecutorInfo(10, "ip4", 10, 2.1));
+        System.out.println(infos);
+        List<ElasticExecutorInfo> list = new ArrayList<>(infos);
+        Collections.sort(list, createDataIntensivenessComparator());
+        System.out.println(list);
     }
 }

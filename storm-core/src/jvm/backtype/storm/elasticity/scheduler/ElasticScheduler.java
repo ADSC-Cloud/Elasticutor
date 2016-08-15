@@ -44,9 +44,6 @@ public class ElasticScheduler {
 
     public ElasticScheduler(Map conf) {
 
-//        System.out.println("Print ------->");
-//        System.out.println(conf.get("slave.ip"));
-//        System.out.println("Printed!");
 
         Config.overrideFromStormConf(conf);
 
