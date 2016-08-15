@@ -301,6 +301,9 @@ public class Master extends UntypedActor implements MasterService.Iface {
             ElasticExecutorMetricsReportMessage elasticExecutorMetricsReportMessage = (ElasticExecutorMetricsReportMessage) message;
             ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateStateSize(elasticExecutorMetricsReportMessage.stateSize);
             ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateDataIntensivenessFactor(elasticExecutorMetricsReportMessage.dataTransferBytesPerSecond);
+        } else if (message instanceof DesirableParallelismMessage) {
+            DesirableParallelismMessage desirableParallelismMessage = (DesirableParallelismMessage) message;
+            ElasticScheduler.getInstance().getElasticExecutorInfo(desirableParallelismMessage.taskID).updateDesirableParallelism(desirableParallelismMessage.desriableParallelism);
         }
     }
 
@@ -321,12 +324,15 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
             String hostIp = getIpForWorkerLogicalName(hostWorkerLogicalName);
             System.out.println("ScalingInSubtask will be called!");
-            if(scalingInSubtask(taskId)) {
+            if(sendScalingInSubtaskCommand(taskId)) {
                 System.out.println("Task" + taskId + " successfully scales in!");
                 ResourceManager.instance().computationResource.returnProcessor(hostIp);
+                ElasticScheduler.getInstance().getElasticExecutorInfo(taskId).scalingIn();
             } else {
                 System.out.println("Task " + taskId + " scaling in fails!");
             }
+
+
 //            System.out.println("Current Routing Table: ");
 //            System.out.println(getOriginalRoutingTable(taskId));
 //            System.out.println("=====================================\n");
@@ -380,12 +386,13 @@ public class Master extends UntypedActor implements MasterService.Iface {
             }
 
             System.out.println("ScalingOutSubtask will be called!");
-            scalingOutSubtask(taskid);
+            sendScalingOutSubtaskCommand(taskid);
             System.out.println("ScalingOutSubtask is called!");
 //            System.out.println("A local new task " + taskid + "." + balancecHashRouting.getNumberOfRoutes() +" is created!");
 //            for(String name: _ipToWorkerLogicalName.keySet()) {
 //                System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
 //            }
+            ElasticScheduler.getInstance().getElasticExecutorInfo(taskid).scalingOut(preferredIp);
 
             if(!hostIp.equals(preferredIp)) {
                 Set<String> candidateHosterWorkers = _ipToWorkerLogicalName.get(hostIp);
@@ -488,7 +495,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskId))), new TaskMigrationCommand(getHostByWorkerLogicalName(originalHostName), getHostByWorkerLogicalName(targetHostName), taskId, routeNo),10000, TimeUnit.SECONDS);
 //            inbox.receive(new FiniteDuration(10000, TimeUnit.SECONDS));
 
-
+            ElasticScheduler.getInstance().getElasticExecutorInfo(taskId).taskMigrate(routeNo, extractIpFromWorkerLogicalName(targetHostName));
             return;
 
         } catch (Exception e) {
@@ -656,13 +663,13 @@ public class Master extends UntypedActor implements MasterService.Iface {
         return ElasticScheduler.getInstance().naiveWorkerLevelLoadBalancing(taskid);
     }
 
-    @Override
-    public void scalingOutSubtask(int taskid) throws TaskNotExistException, TException {
+    public void sendScalingOutSubtaskCommand(int taskid) throws TaskNotExistException, TException {
         if(!_elasticTaskIdToWorkerLogicalName.containsKey(taskid)) {
             throw new TaskNotExistException("Task " + taskid + " does not exist!");
         }
         System.out.println("Scaling out message has been sent!");
         try {
+
             Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingOutSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
 
             if(returnStatus.code == Status.ERROR) {
@@ -675,7 +682,26 @@ public class Master extends UntypedActor implements MasterService.Iface {
     }
 
     @Override
-    public boolean scalingInSubtask(int taskid) throws TException {
+    public void scalingOutSubtask(int taskid) throws TaskNotExistException, TException {
+        if(!_elasticTaskIdToWorkerLogicalName.containsKey(taskid)) {
+            throw new TaskNotExistException("Task " + taskid + " does not exist!");
+        }
+        System.out.println("Scaling out message has been sent!");
+        try {
+
+            handleExecutorScalingOutRequest(taskid);
+//            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingOutSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
+//
+//            if(returnStatus.code == Status.ERROR) {
+//                System.err.println(returnStatus.msg);
+//            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("Scaling out response is received!");
+    }
+
+    public boolean sendScalingInSubtaskCommand(int taskid) throws TException {
         if(!_elasticTaskIdToWorkerLogicalName.containsKey(taskid)) {
             throw new TaskNotExistException("Task " + taskid + " does not exist!");
         }
@@ -683,7 +709,25 @@ public class Master extends UntypedActor implements MasterService.Iface {
         try {
             Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingInSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
             System.out.println("Scaling in response is received!");
-        return returnStatus.code == Status.OK;
+            return returnStatus.code == Status.OK;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    @Override
+    public boolean scalingInSubtask(int taskid) throws TException {
+        if(!_elasticTaskIdToWorkerLogicalName.containsKey(taskid)) {
+            throw new TaskNotExistException("Task " + taskid + " does not exist!");
+        }
+        System.out.println("Scaling in message has been sent!");
+        try {
+//            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingInSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
+//            System.out.println("Scaling in response is received!");
+//        return returnStatus.code == Status.OK;
+            handleExecutorScalingInRequest(taskid);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -704,6 +748,14 @@ public class Master extends UntypedActor implements MasterService.Iface {
             System.err.println("cannot extract valid ip from " + address);
             return null;
         }
+    }
+
+    String extractIpFromWorkerLogicalName(String workerName) {
+        for(String ip: _ipToWorkerLogicalName.keySet()) {
+            if(_ipToWorkerLogicalName.get(ip).contains(workerName))
+                return ip;
+        }
+        return null;
     }
 
     public Histograms getDistributionHistogram(int taskid) throws TaskNotExistException{

@@ -1812,6 +1812,9 @@ public class ElasticTaskHolder {
                                 ExecutorScalingInRequestMessage requestMessage = new ExecutorScalingInRequestMessage(taskId);
                                 _slaveActor.sendMessageObjectToMaster(requestMessage);
                             }
+
+                            _slaveActor.sendMessageObjectToMaster(new DesirableParallelismMessage(taskId, desirableParallelism));
+
                         }
                     }
                 } catch (Exception e) {

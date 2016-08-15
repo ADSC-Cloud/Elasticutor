@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by Robert on 8/12/16.
+ * The basic information of an elastic executor.
  */
 public class ElasticExecutorInfo {
     int taskId;
@@ -12,13 +12,14 @@ public class ElasticExecutorInfo {
     long stateSize;
     double dataIntensivenessFactor;
     List<String> allocatedCores;
+    int desirableParallelism;
 
-    public ElasticExecutorInfo(int taskId, String hostIp) {
+    ElasticExecutorInfo(int taskId, String hostIp) {
         this.taskId = taskId;
         this.hostIp = hostIp;
         stateSize = 0;
         dataIntensivenessFactor = 0;
-        allocatedCores =  new ArrayList<>();
+        allocatedCores = new ArrayList<>();
         allocatedCores.add(hostIp);
     }
 
@@ -28,5 +29,30 @@ public class ElasticExecutorInfo {
 
     public void updateDataIntensivenessFactor(long dataRate) {
         dataIntensivenessFactor = dataRate / (double) allocatedCores.size();
+    }
+
+    public void scalingOut(String hostIp) {
+        allocatedCores.add(hostIp);
+        System.out.println("scaling out is called.");
+        System.out.println("allocated cores:" + allocatedCores);
+    }
+
+    public String scalingIn() {
+        final String ip = allocatedCores.get(allocatedCores.size() - 1);
+        allocatedCores.remove(allocatedCores.size() - 1);
+        System.out.println("allocated cores:" + allocatedCores);
+        System.out.println("scaling in is called.");
+        return ip;
+    }
+
+    public void taskMigrate(int taskId, String targetIp) {
+        allocatedCores.set(taskId, targetIp);
+        System.out.println("task migration is called.");
+        System.out.println("allocated cores:" + allocatedCores);
+    }
+
+    public void updateDesirableParallelism(int desirableParallelism) {
+        this.desirableParallelism = desirableParallelism;
+        System.out.println(String.format("Desirable DOP of Task %d is %d.", taskId, desirableParallelism));
     }
 }
