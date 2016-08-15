@@ -96,6 +96,7 @@ public class QueryRunnable implements Runnable {
                         if(latencyHistory.size()>Config.numberOfLatencyHistoryRecords) {
                             latencyHistory.poll();
                         }
+                        forceSample = false;
                     } else {
                         _bolt.execute(input, _outputCollector);
                     }

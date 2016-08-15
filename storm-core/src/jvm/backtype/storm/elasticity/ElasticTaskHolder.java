@@ -28,7 +28,6 @@ import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultSeriali
 import backtype.storm.elasticity.utils.timer.SmartTimer;
 import backtype.storm.elasticity.utils.timer.SubtaskWithdrawTimer;
 import backtype.storm.generated.HostNotExistException;
-import backtype.storm.messaging.ConnectionWithStatus;
 import backtype.storm.messaging.IConnection;
 import backtype.storm.messaging.IContext;
 import backtype.storm.messaging.TaskMessage;
@@ -852,6 +851,10 @@ public class ElasticTaskHolder {
             sendMessageToMaster("State is not found for Task " + taskId);
         }
         return ret;
+    }
+
+    public KryoTupleSerializer getTupleSerializer() {
+        return tupleSerializer;
     }
 
     private BalancedHashRouting getBalancedHashRoutingFromOriginalBolt(int taskid) {
@@ -1760,8 +1763,21 @@ public class ElasticTaskHolder {
                             ThroughputForRoutes throughputForRoutes = _bolts.get(taskId).get_elasticTasks().getThroughputForRoutes();
                             _bolts.get(taskId).getMetrics().updateLatency(latencyForRoutes);
                             _bolts.get(taskId).getMetrics().updateThroughput(throughputForRoutes);
+
 //                            System.out.println("Latency is added to the local metrics!");
 //                            System.out.println(latencyForRoutes);
+
+                            // get state size;
+                            long stateSize = 0;
+                            KeyValueState state = _bolts.get(taskId).get_elasticTasks().get_bolt().getState();
+                            if(state != null)
+                                stateSize = state.getStateSize();
+
+                            // get data transfer rate
+                            final long dataTransferRate = _bolts.get(taskId).getDataTransferRateInBytesPerSecond();
+
+                            // emit the metric message to master.
+                            _slaveActor.sendMessageObjectToMaster(new ElasticExecutorMetricsReportMessage(taskId, stateSize, dataTransferRate));
                         }
                 } catch (InterruptedException e) {
                     System.out.println("Metrics report thread is terminated!");

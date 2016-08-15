@@ -12,9 +12,8 @@ import backtype.storm.elasticity.routing.RoutingTableUtils;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.model.ExecutorParallelismPredictor;
 import backtype.storm.elasticity.scheduler.model.LoadBalancingAwarePredictor;
-import backtype.storm.elasticity.scheduler.model.NaivePredictor;
-import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.elasticity.utils.KeyBucketSampler;
+import backtype.storm.serialization.KryoTupleSerializer;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
@@ -25,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -52,11 +52,28 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     private transient ElasticTasks _elasticTasks;
     private transient ElasticTaskHolder _holder;
 
-    private transient RateTracker _rateTracker;
+    private transient RateTracker _inputRateTracker;
+
+    // This is used to compute the data-intensiveness of the elastic executor.
+    private transient RateTracker _outputRateTracker;
 
     private transient ElasticExecutorMetrics metrics;
 
     public transient KeyBucketSampler _keyBucketSampler;
+
+    private transient int tupleLengthSampleEveryNTuples;
+
+    private transient long inputTupleCount = 0;
+
+    private transient long outputTupleCount;
+
+    // It is used to get the input and output tuple size, in order to estimate the data-intensiveness of the
+    // elastic executor.
+    private transient KryoTupleSerializer tupleSerializer;
+
+    private transient Queue<Integer> inputTupleLengthHistory;
+
+    private transient Queue<Integer> outputTupleLengthHistory;
 
 
     public BaseElasticBoltExecutor(BaseElasticBolt bolt) {
@@ -81,16 +98,31 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             }
         }
 
+        private void measureOutputTupleLength(TupleExecuteResult executeResult) {
+            if(outputTupleCount ++ % Config.numberOfTupleLengthHistoryRecords == 0) {
+                outputTupleLengthHistory.add(tupleSerializer.serialize(executeResult._outputTuple).length);
+                if(outputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+                    outputTupleLengthHistory.poll();
+                }
+            }
+        }
+
         private void handle(TupleExecuteResult result) {
 //            System.out.println("Tuple content: "+result._streamId + " " + result._inputTuple + " "+ result._outputTuple);
             switch (result._commandType) {
                 case TupleExecuteResult.Emit:
-                    if(result._inputTuple!=null)
+                    _outputRateTracker.notify(1);
+                    measureOutputTupleLength(result);
+                    if(result._inputTuple!=null) {
                         _originalCollector.emit(result._streamId, result._inputTuple, result._outputTuple);
-                    else
+                    }
+                    else {
                         _originalCollector.emit(result._streamId, result._outputTuple);
+                    }
                     break;
                 case TupleExecuteResult.EmitDirect:
+                    _outputRateTracker.notify(1);
+                    measureOutputTupleLength(result);
                     if(result._inputTuple!=null)
                         _originalCollector.emitDirect(result._taskId,result._streamId, result._inputTuple, result._outputTuple);
                     else
@@ -120,8 +152,13 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         _elasticTasks = ElasticTasks.createHashRouting(1,_bolt,_taskId, _outputCollector);
 //        createTest();
 //        _elasticTasks = ElasticTasks.createVoidRouting(_bolt, _taskId, _outputCollector);
-        _rateTracker = new RateTracker(3000, 5);
+        _inputRateTracker = new RateTracker(3000, 5);
+        _outputRateTracker = new RateTracker(3000, 5);
+        tupleLengthSampleEveryNTuples = (int) (1 / Config.tupleLengthSampleRate);
         _holder = ElasticTaskHolder.instance();
+        tupleSerializer = _holder.getTupleSerializer();
+        inputTupleLengthHistory = new LinkedBlockingQueue<>();
+        outputTupleLengthHistory = new LinkedBlockingQueue<>();
         if(_holder!=null) {
             _holder.registerElasticBolt(this, _taskId);
         }
@@ -131,19 +168,26 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     @Override
     public void execute(Tuple input) {
         try {
-        final Object key = _bolt.getKey(input);
+            final Object key = _bolt.getKey(input);
 
-        // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
-        _keyBucketSampler.record(key);
+            // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
+            _keyBucketSampler.record(key);
+            if(inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+                inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
+                if(inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+                    inputTupleLengthHistory.poll();
+                }
+            }
 
-        if(!_elasticTasks.tryHandleTuple(input,key)) {
-            System.err.println("elastic task fails to process a tuple!");
-            assert(false);
-        }
+
+            if(!_elasticTasks.tryHandleTuple(input,key)) {
+                System.err.println("elastic task fails to process a tuple!");
+                assert(false);
+            }
 //
 //        if(_elasticTasks==null||!_elasticTasks.tryHandleTuple(input,key))
 //            _bolt.execute(input, _outputCollector);
-        _rateTracker.notify(1);
+        _inputRateTracker.notify(1);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -204,7 +248,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     }
 
     public double getInputRate() {
-        return _rateTracker.reportRate();
+        return _inputRateTracker.reportRate();
     }
 
     public ElasticExecutorMetrics getMetrics() {
@@ -223,6 +267,23 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         metrics.updateThroughput(throughputForRoutes);
     }
 
+    public long getDataTransferRateInBytesPerSecond() {
+        final double inputRate = _inputRateTracker.reportRate();
+        final double outputRate = _outputRateTracker.reportRate();
+        long inputTuplesAverageLength = 0;
+        long outputTuplesAverageLength = 0;
+        for(int i: inputTupleLengthHistory) {
+            inputTuplesAverageLength += i;
+        }
+        for(int i: outputTupleLengthHistory) {
+            outputTuplesAverageLength += i;
+        }
+
+        inputTuplesAverageLength /= Math.max(1, inputTupleLengthHistory.size());
+        outputTuplesAverageLength /= Math.max(1, outputTupleLengthHistory.size());
+
+        return (long) (inputTuplesAverageLength * inputRate + outputTuplesAverageLength * outputRate);
+    }
 
     public int getCurrentParallelism() {
         return getCompleteRoutingTable().getNumberOfRoutes();

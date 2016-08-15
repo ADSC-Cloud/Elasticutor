@@ -20,6 +20,7 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.util.ArrayQueue;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -38,6 +39,8 @@ public class ElasticScheduler {
     LinkedBlockingQueue<Object> scalingRequestQueue = new LinkedBlockingQueue<>();
 
     LinkedBlockingQueue<Integer> pendingTaskLevelLoadBalancingQueue = new LinkedBlockingQueue<>();
+
+    Map<Integer, ElasticExecutorInfo> taskIdToInfo = new ConcurrentHashMap<>();
 
     public ElasticScheduler(Map conf) {
 
@@ -98,6 +101,20 @@ public class ElasticScheduler {
                 }
             }
         }).start();
+    }
+
+    public void registerElasticExecutor(int taskId, String hostIp) {
+
+        if(!ResourceManager.instance().computationResource.allocateProcessOnGivenNode(hostIp)) {
+            //TODO: Solve this situation.
+        }
+
+        taskIdToInfo.put(taskId, new ElasticExecutorInfo(taskId, hostIp));
+
+    }
+
+    public ElasticExecutorInfo getElasticExecutorInfo(int taskid) {
+        return taskIdToInfo.get(taskid);
     }
 
     private void enableSubtaskLevelLoadBalancing() {
@@ -251,7 +268,7 @@ public class ElasticScheduler {
     }
 
         /**
-         * Given the statics collected from the routing table, this function predict the ratio of actual performance
+         * Given the statics collected from the routing table, this function predicts the ratio of actual performance
          * to the optimal performance. Performance ratio is from 0 to 1. The higher ratio is, the better load balance
          * is achieved.
          * @param histograms statics on the bucket level

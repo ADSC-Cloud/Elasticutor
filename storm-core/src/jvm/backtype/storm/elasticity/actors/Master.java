@@ -3,7 +3,6 @@ package backtype.storm.elasticity.actors;
 import akka.actor.*;
 import akka.cluster.Cluster;
 import akka.cluster.ClusterEvent;
-import backtype.storm.elasticity.actors.utils.ScalingInSubtask;
 import backtype.storm.elasticity.exceptions.RoutingTypeNotSupportedException;
 import backtype.storm.elasticity.message.actormessage.*;
 import backtype.storm.elasticity.message.actormessage.Status;
@@ -248,6 +247,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             if(!_ipToWorkerLogicalName.containsKey(ip))
                 _ipToWorkerLogicalName.put(ip, new HashSet<String>());
             _ipToWorkerLogicalName.get(ip).add(logicalName);
+
             printIpToWorkerLogicalName();
 //            ResourceManager.instance().computationResource.registerNode(ip, workerRegistrationMessage.getNumberOfProcessors());
             System.out.println(ResourceManager.instance().computationResource);
@@ -258,6 +258,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
             ElasticTaskRegistrationMessage registrationMessage = (ElasticTaskRegistrationMessage) message;
             _taskidToActorName.put(registrationMessage.taskId, registrationMessage.hostName);
             _elasticTaskIdToWorkerLogicalName.put(registrationMessage.taskId, getWorkerLogicalName(registrationMessage.hostName));
+
+            final String ip = extractIpFromActorAddress(getSender().path().toString());
+            ElasticScheduler.getInstance().registerElasticExecutor(registrationMessage.taskId, ip);
+
             log("Task " + registrationMessage.taskId + " is launched on " + getWorkerLogicalName(registrationMessage.hostName) + ".");
 
         } else if (message instanceof RouteRegistrationMessage) {
@@ -293,6 +297,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
             ExecutorScalingOutRequestMessage requestMessage = (ExecutorScalingOutRequestMessage) message;
 //            handleExecutorScalingOutRequest(requestMessage.taskId);
             ElasticScheduler.getInstance().addScalingRequest(requestMessage);
+        } else if (message instanceof ElasticExecutorMetricsReportMessage) {
+            ElasticExecutorMetricsReportMessage elasticExecutorMetricsReportMessage = (ElasticExecutorMetricsReportMessage) message;
+            ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateStateSize(elasticExecutorMetricsReportMessage.stateSize);
+            ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateDataIntensivenessFactor(elasticExecutorMetricsReportMessage.dataTransferBytesPerSecond);
         }
     }
 

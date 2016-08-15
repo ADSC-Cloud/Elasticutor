@@ -1,5 +1,7 @@
 package backtype.storm.elasticity.state;
 
+import org.apache.commons.lang.SerializationUtils;
+
 import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class KeyValueState implements Serializable {
 
-    Map<Object, Object> state = new ConcurrentHashMap<>();
+    private Map<Object, Object> state = new ConcurrentHashMap<>();
 
     public Object getValueByKey(Object key) {
         if (state.containsKey(key))
@@ -46,5 +48,15 @@ public class KeyValueState implements Serializable {
 
     public void removeValueByKey(Object key) {
         state.remove(key);
+    }
+
+    /**
+     * get the state size by serializing the state and measuring the size of bytes after serialization.
+     * This is very expensive when the state is large.
+     * TODO: using sampling to reduce the overhead of size estimation
+     * @return state size
+     */
+    public long getStateSize() {
+        return SerializationUtils.serialize(this).length;
     }
 }

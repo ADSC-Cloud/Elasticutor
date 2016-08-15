@@ -99,6 +99,10 @@ public class Config {
 
     public static int numberOfLatencyHistoryRecords = 10;
 
+    public static double tupleLengthSampleRate = 0.001;
+
+    public static int numberOfTupleLengthHistoryRecords = 100;
+
     public static int latencyMaximalTimeIntervalInSecond = 1;
 
     public static double taskLevelLoadBalancingThreshold = 0.2;

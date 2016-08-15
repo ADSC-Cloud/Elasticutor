@@ -31,25 +31,33 @@ public class ComputationResourceManager {
         return ret;
     }
 
+
+    synchronized public boolean allocateProcessOnGivenNode(String preferredNodeIp) {
+        if(nodeIpToProcessors.containsKey(preferredNodeIp) && nodeIpToProcessors.get(preferredNodeIp) > 0) {
+            nodeIpToProcessors.put(preferredNodeIp,nodeIpToProcessors.get(preferredNodeIp) - 1);
+            System.out.println("A processor is allocated from " + preferredNodeIp);
+            System.out.println(this.toString());
+            return true;
+        } else
+            return false;
+
+    }
+
     /**
      *
      * @param preferredNodeIp
      * @return the location of the processor allocated, return null if no processor is available.
      */
    synchronized public String allocateProcessOnPreferredNode(String preferredNodeIp) {
-        if(nodeIpToProcessors.containsKey(preferredNodeIp) && nodeIpToProcessors.get(preferredNodeIp) > 0) {
-            nodeIpToProcessors.put(preferredNodeIp,nodeIpToProcessors.get(preferredNodeIp) - 1);
-            System.out.println("A processor is allocated from " + preferredNodeIp);
-            System.out.println(this.toString());
+
+        boolean onPreferredNode = allocateProcessOnGivenNode(preferredNodeIp);
+        if(onPreferredNode)
             return preferredNodeIp;
-        }
-
-        /*
+       /*
         If there is no available on the preferred node, we allocate a processor on the idlest node.
-         */
-
-
+        */
         String ret = null;
+
         int max = 0;
         for(String ip: nodeIpToProcessors.keySet()) {
             if(nodeIpToProcessors.get(ip) > max) {
