@@ -3,7 +3,7 @@ package backtype.storm.elasticity.scheduler.algorithm.actoin;
 /**
  * Created by robert on 16-8-15.
  */
-public class TaskMigrationAction extends ScheduingAction {
+public class TaskMigrationAction extends SchedulingAction {
     public int routeID;
     public String targetIP;
     public TaskMigrationAction(int taskID, int routeID, String targetIP) {
@@ -13,6 +13,6 @@ public class TaskMigrationAction extends ScheduingAction {
     }
 
     public String toString() {
-        return String.format("Task migration: %d  %d -> %s", taskID, routeID, targetIP);
+        return String.format("Task migration: %d.%d -> %s", taskID, routeID, targetIP);
     }
 }

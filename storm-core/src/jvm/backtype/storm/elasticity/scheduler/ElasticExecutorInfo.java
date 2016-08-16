@@ -37,27 +37,27 @@ public class ElasticExecutorInfo {
 
     public void scalingOut(String hostIp) {
         allocatedCores.add(hostIp);
-        System.out.println("scaling out is called.");
-        System.out.println("allocated cores:" + allocatedCores);
+//        System.out.println("scaling out is called.");
+//        System.out.println("allocated cores:" + allocatedCores);
     }
 
     public String scalingIn() {
         final String ip = allocatedCores.get(allocatedCores.size() - 1);
         allocatedCores.remove(allocatedCores.size() - 1);
-        System.out.println("allocated cores:" + allocatedCores);
-        System.out.println("scaling in is called.");
+//        System.out.println("scaling in is called.");
+//        System.out.println("allocated cores:" + allocatedCores);
         return ip;
     }
 
     public void taskMigrate(int taskId, String targetIp) {
         allocatedCores.set(taskId, targetIp);
-        System.out.println("task migration is called.");
-        System.out.println("allocated cores:" + allocatedCores);
+//        System.out.println("task migration is called.");
+//        System.out.println("allocated cores:" + allocatedCores);
     }
 
     public void updateDesirableParallelism(int desirableParallelism) {
         this.desirableParallelism = desirableParallelism;
-        System.out.println(String.format("Desirable DOP of Task %d is %d.", taskId, desirableParallelism));
+//        System.out.println(String.format("Desirable DOP of Task %d is %d.", taskId, desirableParallelism));
     }
 
     public int getCurrentParallelism() {
@@ -105,11 +105,11 @@ public class ElasticExecutorInfo {
         return ret;
     }
 
-    static public Comparator<ElasticExecutorInfo> createDataIntensivenessComparator() {
+    static public Comparator<ElasticExecutorInfo> createDataIntensivenessReverseComparator() {
         return new Comparator<ElasticExecutorInfo>() {
             @Override
             public int compare(ElasticExecutorInfo o1, ElasticExecutorInfo o2) {
-                return Double.compare(o1.dataIntensivenessFactor, o2.dataIntensivenessFactor);
+                return Double.compare(o2.dataIntensivenessFactor, o1.dataIntensivenessFactor);
             }
         };
     }
@@ -130,7 +130,7 @@ public class ElasticExecutorInfo {
         infos.add(new ElasticExecutorInfo(10, "ip4", 10, 2.1));
         System.out.println(infos);
         List<ElasticExecutorInfo> list = new ArrayList<>(infos);
-        Collections.sort(list, createDataIntensivenessComparator());
+        Collections.sort(list, createDataIntensivenessReverseComparator());
         System.out.println(list);
     }
 }

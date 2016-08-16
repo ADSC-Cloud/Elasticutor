@@ -3,21 +3,23 @@ package backtype.storm.elasticity.scheduler.algorithm;
 import backtype.storm.elasticity.scheduler.ElasticExecutorInfo;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.ScaingOutAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingInAction;
-import backtype.storm.elasticity.scheduler.algorithm.actoin.ScheduingAction;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.SchedulingAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.TaskMigrationAction;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * Created by robert on 16-8-15.
  */
 public class LocalityAndMigrationCostAwareScheduling {
-    public List<ScheduingAction> schedule(Collection<ElasticExecutorInfo> executorInfos, List<String> freeCPUCores, double dataIntensivenessThreshold) {
+    public List<SchedulingAction> schedule(Collection<ElasticExecutorInfo> executorInfos, List<String> freeCPUCores, double dataIntensivenessThreshold) {
 
         // create a virtual elastic executor with all the free CPU cores.
         final int virtualExecutorTaskId = -100;
         ElasticExecutorInfo idleElasticExecutor = new ElasticExecutorInfo(virtualExecutorTaskId, "no_node");
         idleElasticExecutor.updateDesirableParallelism(0);
+        idleElasticExecutor.scalingIn();
         executorInfos.add(idleElasticExecutor);
         if(freeCPUCores.size() != 0) {
             for(String ip: freeCPUCores) {
@@ -26,7 +28,7 @@ public class LocalityAndMigrationCostAwareScheduling {
         }
 
         List<ElasticExecutorInfo> sortedExecutors = new ArrayList<>(executorInfos);
-        Collections.sort(sortedExecutors, ElasticExecutorInfo.createDataIntensivenessComparator());
+        Collections.sort(sortedExecutors, ElasticExecutorInfo.createDataIntensivenessReverseComparator());
 
         List<ElasticExecutorInfo> overProvisionedExecutors = new ArrayList<>();
         for(ElasticExecutorInfo info: sortedExecutors) {
@@ -37,22 +39,21 @@ public class LocalityAndMigrationCostAwareScheduling {
         }
 
         List<ElasticExecutorInfo> nonDataIntensiveElasticExecutors = new ArrayList<>();
-        nonDataIntensiveElasticExecutors.add(idleElasticExecutor);
         for(ElasticExecutorInfo info: sortedExecutors) {
-            if(info.getDesirableParallelism() < dataIntensivenessThreshold) {
+            if(info.getDataIntensiveness() < dataIntensivenessThreshold) {
                 nonDataIntensiveElasticExecutors.add(info);
             }
         }
 
 
-        List<ScheduingAction> actions = new ArrayList<>();
+        List<SchedulingAction> actions = new ArrayList<>();
 
         for(ElasticExecutorInfo executor: sortedExecutors) {
 
             if(executor.getDataIntensiveness() >= dataIntensivenessThreshold) {
                 // data-intensive executor only accepts CPU cores on the host node.
                 final String hostIp = executor.getHostIp();
-                while(executor.getDesirableParallelism() < executor.getCurrentParallelism()) {
+                while(executor.getDesirableParallelism() > executor.getCurrentParallelism()) {
                     double overhead = Double.MAX_VALUE;
                     ScalingInAction scalingInAction = null;
                     ElasticExecutorInfo targetExecutor = null;
@@ -81,6 +82,7 @@ public class LocalityAndMigrationCostAwareScheduling {
                             actions.add(new TaskMigrationAction(taskid, routeAllocatedOnDesirableCore, ipForLastRoute));
                             actions.add(new TaskMigrationAction(taskid, lastRoute, hostIp));
                             scalingInAction.direct = true;
+                            scalingInAction.route = lastRoute;
                             actions.add(scalingInAction);
                             targetExecutor.getAllocatedCores().set(lastRoute, hostIp);
                             targetExecutor.getAllocatedCores().set(routeAllocatedOnDesirableCore, ipForLastRoute);
@@ -114,6 +116,7 @@ public class LocalityAndMigrationCostAwareScheduling {
                             final double scalingOutOverhead = scalingOutOverhead(executor.getAllocatedCores(), core, executor.getStateSize());
                             if(scalingInOverhead + scalingOutOverhead < overhead) {
                                 // this is the best core swap we found so far.
+                                overhead = scalingInOverhead + scalingOutOverhead;
                                 if(overProvisionedOne.getAllocatedCores().get(overProvisionedOne.getAllocatedCores().size() - 1).equals(core)) {
                                     scalingInAction = new ScalingInAction(overProvisionedOne.getTaskId(), overProvisionedOne.getRouteIdForACore(core));
                                 } else {
@@ -129,7 +132,6 @@ public class LocalityAndMigrationCostAwareScheduling {
                     if(scalingInAction != null) {
                         if(scalingInAction.direct) {
                             actions.add(scalingInAction);
-                            actions.add(scalingOutAction);
                         } else {
                             final String ipForLastRoute = scalingInExecutor.getAllocatedCores().get(scalingInExecutor.getAllocatedCores().size() - 1);
                             final int scalingInExecutorTaskID = scalingInExecutor.getTaskId();
@@ -138,6 +140,7 @@ public class LocalityAndMigrationCostAwareScheduling {
                             actions.add(new TaskMigrationAction(scalingInExecutorTaskID, routeAllocatedOnTargetCore, ipForLastRoute));
                             actions.add(new TaskMigrationAction(scalingInExecutorTaskID, lastRouteOfScalingInExecutor, targetCore));
                             scalingInAction.direct = true;
+                            scalingInAction.route = lastRouteOfScalingInExecutor;
                             actions.add(scalingInAction);
                             scalingInExecutor.getAllocatedCores().set(lastRouteOfScalingInExecutor, targetCore);
                             scalingInExecutor.getAllocatedCores().set(routeAllocatedOnTargetCore, ipForLastRoute);
@@ -160,12 +163,16 @@ public class LocalityAndMigrationCostAwareScheduling {
         }
 
         // clear up all the operations on the virtual elastic executor before returning the result.
-        for(ScheduingAction action: actions) {
-            if(action.getTaskID() == virtualExecutorTaskId)
-                actions.remove(action);
-        }
+//        for(SchedulingAction action: actions) {
+//            if(action.getTaskID() == virtualExecutorTaskId)
+//                actions.remove(action);
+//        }
 
-        System.out.println(actions);
+        actions.removeIf(new Predicate<SchedulingAction>() {
+            public boolean test(SchedulingAction schedulingAction) {
+                return schedulingAction.getTaskID() == virtualExecutorTaskId;
+            }
+        });
 
         return actions;
     }
@@ -173,6 +180,8 @@ public class LocalityAndMigrationCostAwareScheduling {
 
 
     double scalingInOverhead(List<String> allocatedCores, String targetCore, long stateSize) {
+        if(stateSize == 0)
+            return 0.0;
         List<String> colocatedCores = new ArrayList<>();
         for(String core: allocatedCores) {
             if(core.equals(targetCore)) {
@@ -181,7 +190,7 @@ public class LocalityAndMigrationCostAwareScheduling {
         }
         final double fractionOfStateMigrationGoesThroughNetwork = (1.0 - (colocatedCores.size() - 1.0) / (allocatedCores.size() -1.0));
         final double stateMigratedSize = stateSize / (double) allocatedCores.size();
-        if(allocatedCores.get(allocatedCores.size()).equals(targetCore)) {
+        if(allocatedCores.get(allocatedCores.size() - 1).equals(targetCore)) {
             return stateMigratedSize * fractionOfStateMigrationGoesThroughNetwork;
         } else
             return stateMigratedSize * fractionOfStateMigrationGoesThroughNetwork + stateSize / (allocatedCores.size() - 1.0) ;
@@ -197,5 +206,136 @@ public class LocalityAndMigrationCostAwareScheduling {
         final double fractionOfStateMigrationGoesThroughNetwork = (1.0 - colocatedCores.size() / (double)allocatedCores.size());
         final double stateMigratedSize = stateSize / (allocatedCores.size() + 1.0);
         return fractionOfStateMigrationGoesThroughNetwork * stateMigratedSize;
+    }
+
+    static public void main(String[] args) {
+        check1();
+        check2();
+        check3();
+        check4();
+    }
+
+    static void check1() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.1.192", 1024, 500.0);
+        executorInfo1.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo1);
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("10.10.10.10");
+        freeCPUCores.add("192.168.1.192");
+        freeCPUCores.add("20.20.20.20");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 600.0);
+        boolean pass = true;
+        if(!(actions.get(0) instanceof ScaingOutAction)||!((ScaingOutAction)actions.get(0)).targetIP.equals("192.168.1.192"))
+            pass = false;
+        if(!(actions.size() == 1))
+            pass = false;
+        if(pass)
+            System.out.println("Check 1 passed!");
+        else
+            System.out.println("Check 1 failed!");
+    }
+
+    static void check2() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.1.192", 1024, 500.0);
+        executorInfo1.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo1);
+
+        ElasticExecutorInfo executorInfo2 = new ElasticExecutorInfo(1, "10.10.10.10", 2048, 400.0);
+        executorInfo2.updateDesirableParallelism(1);
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("10.10.10.10");
+
+        executorInfos.add(executorInfo2);
+
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("10.10.10.10");
+        freeCPUCores.add("10.10.10.12");
+        freeCPUCores.add("20.20.20.20");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 300.0);
+
+        String expectedResult = "[Task migration: 1.1 -> 10.10.10.10, Task migration: 1.2 -> 192.168.1.192, Scaling in: 1.2, Scaling out: 0 -> 192.168.1.192]";
+        if(actions.toString().equals(expectedResult))
+            System.out.println("Check 2 passed!");
+        else
+            System.out.println("Check 2 failed!");
+    }
+
+    static void check3() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.1.192", 1024, 200.0);
+        executorInfo1.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo1);
+
+        ElasticExecutorInfo executorInfo2 = new ElasticExecutorInfo(1, "10.10.10.10", 2048, 100.0);
+        executorInfo2.updateDesirableParallelism(1);
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("10.10.10.10");
+        executorInfos.add(executorInfo2);
+
+        ElasticExecutorInfo executorInfo3 = new ElasticExecutorInfo(2, "10.10.10.10", 2048, 100.0);
+        executorInfo3.updateDesirableParallelism(1);
+        executorInfo3.scalingOut("192.168.1.192");
+        executorInfo3.scalingOut("192.168.1.192");
+        executorInfo3.scalingOut("10.10.10.10");
+        executorInfos.add(executorInfo3);
+
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("10.10.10.10");
+        freeCPUCores.add("10.10.10.12");
+        freeCPUCores.add("20.20.20.20");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 150.0);
+
+        System.out.println(actions);
+
+        String expectedResult = "[Task migration: 1.3 -> 10.10.10.10, Task migration: 1.4 -> 192.168.1.192, Scaling in: 1.4, Scaling out: 0 -> 192.168.1.192]";
+        if(actions.toString().equals(expectedResult))
+            System.out.println("Check 3 passed!");
+        else
+            System.out.println("Check 3 failed!");
+    }
+
+    static void check4() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.1.192", 8024, 200.0);
+        executorInfo1.scalingOut("10.10.10.10");
+        executorInfo1.scalingOut("10.10.10.10");
+        executorInfo1.updateDesirableParallelism(4);
+        executorInfos.add(executorInfo1);
+
+        ElasticExecutorInfo executorInfo2 = new ElasticExecutorInfo(1, "10.10.10.10", 2048, 100.0);
+        executorInfo2.updateDesirableParallelism(1);
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("192.168.1.192");
+        executorInfo2.scalingOut("10.10.10.10");
+        executorInfos.add(executorInfo2);
+
+        ElasticExecutorInfo executorInfo3 = new ElasticExecutorInfo(2, "10.10.10.10", 2048, 100.0);
+        executorInfo3.updateDesirableParallelism(1);
+        executorInfo3.scalingOut("192.168.1.192");
+        executorInfo3.scalingOut("192.168.1.192");
+        executorInfo3.scalingOut("10.10.10.10");
+        executorInfos.add(executorInfo3);
+
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("10.10.10.12");
+        freeCPUCores.add("20.20.20.20");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 250.0);
+
+        System.out.println(actions);
+
+        String expectedResult = "[Scaling in: 1.4, Scaling out: 0 -> 10.10.10.10]";
+        if(actions.toString().equals(expectedResult))
+            System.out.println("Check 4 passed!");
+        else
+            System.out.println("Check 4 failed!");
     }
 }
