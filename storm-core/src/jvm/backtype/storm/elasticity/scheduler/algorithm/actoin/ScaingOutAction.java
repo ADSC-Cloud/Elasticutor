@@ -3,11 +3,13 @@ package backtype.storm.elasticity.scheduler.algorithm.actoin;
 /**
  * Created by robert on 16-8-15.
  */
-public class ScaingOutAction implements ScheduingAction {
-    public int taskid;
+public class ScaingOutAction extends ScheduingAction {
     public String targetIP;
     public ScaingOutAction(int taskid, String targetIP) {
-        this.taskid = taskid;
+        this.taskID = taskid;
         this.targetIP = targetIP;
+    }
+    public String toString() {
+        return String.format("Scaling out: %d -> %s", taskID, targetIP);
     }
 }

@@ -72,6 +72,31 @@ public class ElasticExecutorInfo {
         return dataIntensivenessFactor;
     }
 
+    public List<String> getAllocatedCores() {
+        return allocatedCores;
+    }
+
+    public String getHostIp() {
+        return hostIp;
+    }
+
+    public long getStateSize() {
+        return stateSize;
+    }
+
+    public int getTaskId() {
+        return taskId;
+    }
+
+    public int getRouteIdForACore(String core) {
+        for(int i = allocatedCores.size() - 1; i >= 0; i--) {
+            if(allocatedCores.get(i).equals(core)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     public String toString() {
         String ret = "";
         ret += String.format("%d, %d, %.2f", taskId, stateSize, dataIntensivenessFactor);
