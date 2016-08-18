@@ -5,7 +5,9 @@ import backtype.storm.elasticity.ElasticOutputCollector;
 import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
+import backtype.storm.tuple.Values;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
@@ -108,10 +110,11 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 newRecord.volume -= tradeVolume;
                 sell.volume -= tradeVolume;
                 state.updateSell(sell);
-                System.out.println(String.format("User %s buys %f volume %s stock from User %s at price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, sell.accountId, sell.price, format.format(newRecord.date)));
+                collector.emit(PocTopology.TRANSACTION_STREAM, new Values(input.getIntegerByField(PocTopology.SEC_CODE), newRecord.price, tradeVolume));
+//                System.out.println(String.format("User %s buys %f volume %s stock from User %s at price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, sell.accountId, sell.price, format.format(newRecord.date)));
                 if(sell.volume == 0) {
                     state.removeSell(sell);
-                    System.out.println(String.format("Seller %s's transaction for stock %d! is completed!", sell.accountId, sell.secCode));
+//                    System.out.println(String.format("Seller %s's transaction for stock %d! is completed!", sell.accountId, sell.secCode));
                 }
             }
             if(newRecord.volume > 0) {
@@ -129,10 +132,11 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 newRecord.volume -= tradeVolume;
                 buy.volume -= tradeVolume;
                 state.updateBuy(buy);
-                System.out.println(String.format("User %s sells %f volume %s stock to User %s price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, buy.accountId, buy.price, format.format(newRecord.date)));
+                collector.emit(PocTopology.TRANSACTION_STREAM, new Values(input.getIntegerByField(PocTopology.SEC_CODE), newRecord.price, tradeVolume));
+//                System.out.println(String.format("User %s sells %f volume %s stock to User %s price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, buy.accountId, buy.price, format.format(newRecord.date)));
                 if(buy.volume == 0) {
                     state.removeBuy(buy);
-                    System.out.println(String.format("Buyer %s's transaction for stock %d! is completed!", buy.accountId, buy.secCode));
+//                    System.out.println(String.format("Buyer %s's transaction for stock %d! is completed!", buy.accountId, buy.secCode));
                 }
             }
             if(newRecord.volume > 0) {
@@ -144,6 +148,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
+        declarer.declareStream(PocTopology.TRANSACTION_STREAM, new Fields(PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME));
 
     }
 
