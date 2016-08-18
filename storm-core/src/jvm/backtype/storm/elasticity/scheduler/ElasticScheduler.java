@@ -184,26 +184,28 @@ public class ElasticScheduler {
                 while (true) {
                     try {
                         Utils.sleep(sleepTimeInMilliseconds);
-                        Map<Integer, ElasticExecutorInfo> currentElasticExecutorInfos = ElasticScheduler.getInstance().getElasticExecutorStatusManager().getInfoSnapshot();
-                        System.out.println("Snapshot: " + currentElasticExecutorInfos.values());
-                        List<SchedulingAction> actions = scheduling.schedule(new ArrayList<>(currentElasticExecutorInfos.values()), ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
-                        System.out.println("The following actions will be performed: " + actions);
+                        synchronized (lock) {
+                            Map<Integer, ElasticExecutorInfo> currentElasticExecutorInfos = ElasticScheduler.getInstance().getElasticExecutorStatusManager().getInfoSnapshot();
+                            System.out.println("Snapshot: " + currentElasticExecutorInfos.values());
+                            List<SchedulingAction> actions = scheduling.schedule(new ArrayList<>(currentElasticExecutorInfos.values()), ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
+                            System.out.println("The following actions will be performed: " + actions);
 
-                        for(SchedulingAction action: actions) {
-                            if(action instanceof ScalingOutAction) {
-                                ScalingOutAction scalingOutAction = (ScalingOutAction) action;
-                                Master.getInstance().handleExecutorScalingOutRequest(scalingOutAction.getTaskID(), scalingOutAction.targetIP);
-                            } else if (action instanceof ScalingInAction) {
-                                Master.getInstance().handleExecutorScalingInRequest(action.getTaskID());
-                            } else if (action instanceof TaskMigrationAction) {
-                                TaskMigrationAction taskMigrationAction = (TaskMigrationAction) action;
-                                final String targetWorkerLogicalName = Master.getInstance().getAWorkerLogicalNameOnAGivenIp(taskMigrationAction.targetIP);
-                                Master.getInstance().resourceAwareMigrateTask(targetWorkerLogicalName,taskMigrationAction.getTaskID(), taskMigrationAction.routeID);
+                            for (SchedulingAction action : actions) {
+                                if (action instanceof ScalingOutAction) {
+                                    ScalingOutAction scalingOutAction = (ScalingOutAction) action;
+                                    Master.getInstance().handleExecutorScalingOutRequest(scalingOutAction.getTaskID(), scalingOutAction.targetIP);
+                                } else if (action instanceof ScalingInAction) {
+                                    Master.getInstance().handleExecutorScalingInRequest(action.getTaskID());
+                                } else if (action instanceof TaskMigrationAction) {
+                                    TaskMigrationAction taskMigrationAction = (TaskMigrationAction) action;
+                                    final String targetWorkerLogicalName = Master.getInstance().getAWorkerLogicalNameOnAGivenIp(taskMigrationAction.targetIP);
+                                    Master.getInstance().resourceAwareMigrateTask(targetWorkerLogicalName, taskMigrationAction.getTaskID(), taskMigrationAction.routeID);
+                                }
+                                System.out.println(action + " is performed!");
                             }
-                            System.out.println(action + " is performed!");
-                        }
 
-                        System.out.println("========== DONE =========");
+                            System.out.println("========== DONE =========");
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
