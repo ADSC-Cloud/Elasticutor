@@ -39,6 +39,15 @@ public class ElasticOutputCollector {
         return null;
     }
 
+    public List<Integer> emit(String streamId, List<Object> tuple) {
+        try {
+            _outputQueue.put(TupleExecuteResult.createEmit(streamId, null, tuple));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public List<Integer> emit(List<Object> tuple) {
         try {
             _outputQueue.put(TupleExecuteResult.createEmit(Utils.DEFAULT_STREAM_ID, null, tuple));
