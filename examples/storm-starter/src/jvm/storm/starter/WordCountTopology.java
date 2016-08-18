@@ -18,7 +18,6 @@
 package storm.starter;
 
 import backtype.storm.Config;
-import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.ShellBolt;
@@ -96,14 +95,14 @@ public class WordCountTopology {
       StormSubmitter.submitTopologyWithProgressBar(args[0], conf, builder.createTopology());
     }
     else {
-      conf.setMaxTaskParallelism(2);
-
-      LocalCluster cluster = new LocalCluster();
-      cluster.submitTopology("word-count", conf, builder.createTopology());
-
-      Thread.sleep(10000);
-
-      cluster.shutdown();
+//      conf.setMaxTaskParallelism(2);
+//
+//      LocalCluster cluster = new LocalCluster();
+//      cluster.submitTopology("word-count", conf, builder.createTopology());
+//
+//      Thread.sleep(10000);
+//
+//      cluster.shutdown();
     }
   }
 }

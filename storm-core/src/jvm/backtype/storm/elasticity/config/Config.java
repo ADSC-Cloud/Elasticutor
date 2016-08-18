@@ -35,6 +35,8 @@ public class Config {
         EnableAutomaticScaling = readBoolean(conf, "elasticity.EnableAutomaticScaling", false);
 
         SubtaskLevelLoadBalancingCycleInMilliSecs = readInteger(conf, "elasticity.IntraExecutorLoadBalancingCycle", 1000);
+
+        ElasticSchedulingCycleInMillisecond = readInteger(conf, "elasticity.ElasticSchedulingCycleInMillisecond", 2000);
     }
 
     static int readInteger(Map conf, String key, int defaultValue) {
@@ -92,6 +94,8 @@ public class Config {
     public static boolean EnableSubtaskLevelLoadBalancing = false;
 
     public static boolean EnableAutomaticScaling = false;
+
+    public static int ElasticSchedulingCycleInMillisecond = 5000;
 
     public static int LoggingServerPort = 10000;
 

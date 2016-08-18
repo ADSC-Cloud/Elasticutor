@@ -2,14 +2,9 @@ package storm.starter.poc;
 
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.TopologyContext;
-import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
-import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
-import backtype.storm.tuple.Tuple;
-import backtype.storm.utils.Utils;
-import storm.trident.spout.IBatchSpout;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -59,7 +54,9 @@ public class Spout extends BaseRichSpout {
             int secCode = Integer.parseInt(values[11]);
             double price = Double.parseDouble(values[8]);
             int volume = (int)Double.parseDouble(values[10]);
-            String time = values[3];
+            String time1 = values[2];
+            String time2 = values[3];
+            String time3 = values[4];
 
 //            for(int i=0;i<values.length;i++) {
 //                System.out.println(String.format("%d: %s", i, values[i]));
@@ -67,9 +64,9 @@ public class Spout extends BaseRichSpout {
 
             String direction = values[22];
             if(direction.equals("S")) {
-                collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time));
+                collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3));
             } else {
-                collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time));
+                collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3));
             }
 
 
@@ -80,7 +77,7 @@ public class Spout extends BaseRichSpout {
     }
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.TIME));
-        declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.TIME));
+        declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND));
+        declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND));
     }
 }

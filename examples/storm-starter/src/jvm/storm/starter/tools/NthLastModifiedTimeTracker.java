@@ -21,9 +21,9 @@ import backtype.storm.utils.Time;
 import org.apache.commons.collections.buffer.CircularFifoBuffer;
 
 /**
- * This class tracks the time-since-last-modify of a "thing" in a rolling fashion.
+ * This class tracks the date-since-last-modify of a "thing" in a rolling fashion.
  * <p/>
- * For example, create a 5-slot tracker to track the five most recent time-since-last-modify.
+ * For example, create a 5-slot tracker to track the five most recent date-since-last-modify.
  * <p/>
  * You must manually "mark" that the "something" that you want to track -- in terms of modification times -- has just
  * been modified.

@@ -34,11 +34,11 @@ import java.util.Map;
  * previous iteration. This is the effect of the counter "loading up" at the very start of its existence. Conceptually,
  * this is the desired behavior.
  * <p/>
- * To give an example, using a counter with 5 slots which for the sake of this example represent 1 minute of time each:
+ * To give an example, using a counter with 5 slots which for the sake of this example represent 1 minute of date each:
  * <p/>
  * <pre>
  * {@code
- * Sliding window counts of an object X over time
+ * Sliding window counts of an object X over date
  *
  * Minute (timeline):
  * 1    2   3   4   5   6   7   8
@@ -61,7 +61,7 @@ import java.util.Map;
  * On a high-level, the counter exhibits the following behavior: If you asked the example counter after two minutes,
  * "how often did you count the object during the past five minutes?", then it should reply "I have counted it 2 times
  * in the past five minutes", implying that it can only account for the last two of those five minutes because the
- * counter was not running before that time.
+ * counter was not running before that date.
  *
  * @param <T> The type of those objects we want to count.
  */

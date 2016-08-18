@@ -9,6 +9,7 @@ import backtype.storm.elasticity.message.actormessage.Status;
 import backtype.storm.elasticity.resource.ResourceManager;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
+import backtype.storm.elasticity.scheduler.ElasticExecutorInfo;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.generated.HostNotExistException;
@@ -189,14 +190,18 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
                         if(_nameToPath.get(_taskidToActorName.get(task)).address().toString().equals(unreachableMember.member().address().toString())) {
                             System.out.println("_taskidToActorName--> Task: " + task + " + _taskidToActorName: " + _taskidToActorName.get(task));
-                            int i = 1;
-                            if(_taskToCoreLocations.get(task)!=null) {
-                                for (String coreIp : _taskToCoreLocations.get(task)) {
-                                    System.out.println("No: " + i++);
-                                    ResourceManager.instance().computationResource.returnProcessor(coreIp);
-                                    System.out.println("The CPU core for task " + task + " is returned, as the its hosting worker is dead!");
-                                }
-                            }
+//                            int i = 1;
+//                            if(_taskToCoreLocations.get(task)!=null) {
+//                                for (String coreIp : _taskToCoreLocations.get(task)) {
+//                                    System.out.println("No: " + i++);
+//                                    ResourceManager.instance().computationResource.returnProcessor(coreIp);
+//                                    System.out.println("The CPU core for task " + task + " is returned, as the its hosting worker is dead!");
+//                                }
+//                            }
+//                            for(String core: ElasticScheduler.getInstance().getElasticExecutorStatusManager().getAllocatedCoresForATask(task)) {
+//                                ResourceManager.instance().computationResource.returnProcessor(core);
+//                            }
+                            ElasticScheduler.getInstance().unregisterElasticExecutor(task);
 
                             _elasticTaskIdToWorkerLogicalName.remove(task);
                             _taskidToActorName.remove(task);
@@ -299,11 +304,11 @@ public class Master extends UntypedActor implements MasterService.Iface {
             ElasticScheduler.getInstance().addScalingRequest(requestMessage);
         } else if (message instanceof ElasticExecutorMetricsReportMessage) {
             ElasticExecutorMetricsReportMessage elasticExecutorMetricsReportMessage = (ElasticExecutorMetricsReportMessage) message;
-            ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateStateSize(elasticExecutorMetricsReportMessage.stateSize);
-            ElasticScheduler.getInstance().getElasticExecutorInfo(elasticExecutorMetricsReportMessage.taskID).updateDataIntensivenessFactor(elasticExecutorMetricsReportMessage.dataTransferBytesPerSecond);
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().updateStateSize(elasticExecutorMetricsReportMessage.taskID, elasticExecutorMetricsReportMessage.stateSize);
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().updateDataIntensivenessFactor(elasticExecutorMetricsReportMessage.taskID, elasticExecutorMetricsReportMessage.dataTransferBytesPerSecond);
         } else if (message instanceof DesirableParallelismMessage) {
             DesirableParallelismMessage desirableParallelismMessage = (DesirableParallelismMessage) message;
-            ElasticScheduler.getInstance().getElasticExecutorInfo(desirableParallelismMessage.taskID).updateDesirableParallelism(desirableParallelismMessage.desriableParallelism);
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().updateDesirableParallelism(desirableParallelismMessage.taskID, desirableParallelismMessage.desriableParallelism);
         }
     }
 
@@ -327,7 +332,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             if(sendScalingInSubtaskCommand(taskId)) {
                 System.out.println("Task" + taskId + " successfully scales in!");
                 ResourceManager.instance().computationResource.returnProcessor(hostIp);
-                ElasticScheduler.getInstance().getElasticExecutorInfo(taskId).scalingIn();
+                ElasticScheduler.getInstance().getElasticExecutorStatusManager().scalingInExecutor(taskId);
             } else {
                 System.out.println("Task " + taskId + " scaling in fails!");
             }
@@ -342,7 +347,13 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     }
 
-    String getIpForWorkerLogicalName(String workerLogicalName) {
+    public String getAWorkerLogicalNameOnAGivenIp(String ip) {
+        Set<String> workers = _ipToWorkerLogicalName.get(ip);
+        return new ArrayList<>(workers).get(new Random().nextInt(workers.size()));
+    }
+
+
+    public String getIpForWorkerLogicalName(String workerLogicalName) {
         String hostIp = null;
         for(String ip : _ipToWorkerLogicalName.keySet()) {
             if(_ipToWorkerLogicalName.get(ip).contains(workerLogicalName)) {
@@ -361,15 +372,58 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     }
 
+
+    public void handleExecutorScalingOutRequest(int taskid, String targetIp) throws TException {
+
+        if(!ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(targetIp).equals(targetIp)) {
+            System.out.println("Cannot get cores from " + targetIp);
+            return;
+        }
+
+        String workerHostName = _elasticTaskIdToWorkerLogicalName.get(taskid);
+        String hostIP = getIpForWorkerLogicalName(workerHostName);
+        RoutingTable balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
+        if(balancecHashRouting == null) {
+            createRouting(workerHostName,taskid,1,"balanced_hash");
+            balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
+        }
+
+        System.out.println("ScalingOutSubtask will be called!");
+        sendScalingOutSubtaskCommand(taskid);
+        System.out.println("ScalingOutSubtask is called!");
+//            System.out.println("A local new task " + taskid + "." + balancecHashRouting.getNumberOfRoutes() +" is created!");
+//            for(String name: _ipToWorkerLogicalName.keySet()) {
+//                System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
+//            }
+        ElasticScheduler.getInstance().getElasticExecutorStatusManager().scalingOutExecutor(taskid, hostIP);
+
+        if(!targetIp.equals(hostIP)) {
+//            Set<String> candidateHosterWorkers = _ipToWorkerLogicalName.get(targetIp);
+//
+//            List<String> candidates = new ArrayList<>();
+//            candidates.addAll(candidateHosterWorkers);
+//            String hosterWorker = candidates.get(new Random().nextInt(candidateHosterWorkers.size()));
+
+            int targetRoute = getRoutingTable(taskid).getNumberOfRoutes() - 1 ;
+
+            System.out.println("a local task " + taskid + "." + targetRoute+" will be migrated from " + workerHostName + " to " + targetIp);
+            migrateTasks(targetIp, taskid, targetRoute);
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().migrateRoute(taskid, targetRoute, targetIp);
+            System.out.println("Task " + taskid + "." + targetRoute + " has been migrated!");
+        }
+    }
+
+
+
     public void handleExecutorScalingOutRequest(int taskid) {
-        String hostIp = null;
+        String targetIp = null;
         try {
             String workerHostName = _elasticTaskIdToWorkerLogicalName.get(taskid);
             String preferredIp = getIpForWorkerLogicalName(workerHostName);
 
-            hostIp = ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(preferredIp);
+            targetIp = ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(preferredIp);
 
-            if(hostIp == null) {
+            if(targetIp == null) {
                 System.err.println("There is not enough computation resources for scaling out!");
                 return;
             }
@@ -377,36 +431,37 @@ public class Master extends UntypedActor implements MasterService.Iface {
             if(!_taskToCoreLocations.containsKey(taskid)) {
                 _taskToCoreLocations.put(taskid, new ArrayList<String>());
             }
-            _taskToCoreLocations.get(taskid).add(hostIp);
+            _taskToCoreLocations.get(taskid).add(targetIp);
 
-            RoutingTable balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
-            if(balancecHashRouting == null) {
-                createRouting(workerHostName,taskid,1,"balanced_hash");
-                balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
-            }
-
-            System.out.println("ScalingOutSubtask will be called!");
-            sendScalingOutSubtaskCommand(taskid);
-            System.out.println("ScalingOutSubtask is called!");
-//            System.out.println("A local new task " + taskid + "." + balancecHashRouting.getNumberOfRoutes() +" is created!");
-//            for(String name: _ipToWorkerLogicalName.keySet()) {
-//                System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
+            handleExecutorScalingOutRequest(taskid, targetIp);
+//            RoutingTable balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
+//            if(balancecHashRouting == null) {
+//                createRouting(workerHostName,taskid,1,"balanced_hash");
+//                balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
 //            }
-            ElasticScheduler.getInstance().getElasticExecutorInfo(taskid).scalingOut(preferredIp);
-
-            if(!hostIp.equals(preferredIp)) {
-                Set<String> candidateHosterWorkers = _ipToWorkerLogicalName.get(hostIp);
-
-                List<String> candidates = new ArrayList<>();
-                candidates.addAll(candidateHosterWorkers);
-                String hosterWorker = candidates.get(new Random().nextInt(candidateHosterWorkers.size()));
-
-                int targetRoute = getRoutingTable(taskid).getNumberOfRoutes() - 1 ;
-
-                System.out.println("a local task " + taskid + "." + targetRoute+" will be migrated from " + workerHostName + " to " + hosterWorker);
-                migrateTasks(workerHostName, hosterWorker, taskid, targetRoute);
-                System.out.println("Task " + taskid + "." + targetRoute + " has been migrated!");
-            }
+//
+//            System.out.println("ScalingOutSubtask will be called!");
+//            sendScalingOutSubtaskCommand(taskid);
+//            System.out.println("ScalingOutSubtask is called!");
+////            System.out.println("A local new task " + taskid + "." + balancecHashRouting.getNumberOfRoutes() +" is created!");
+////            for(String name: _ipToWorkerLogicalName.keySet()) {
+////                System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
+////            }
+//            ElasticScheduler.getInstance().getElasticExecutorStatusManager().scalingOutExecutor(taskid, preferredIp);
+//
+//            if(!hostIp.equals(preferredIp)) {
+//                Set<String> candidateHosterWorkers = _ipToWorkerLogicalName.get(hostIp);
+//
+//                List<String> candidates = new ArrayList<>();
+//                candidates.addAll(candidateHosterWorkers);
+//                String hosterWorker = candidates.get(new Random().nextInt(candidateHosterWorkers.size()));
+//
+//                int targetRoute = getRoutingTable(taskid).getNumberOfRoutes() - 1 ;
+//
+//                System.out.println("a local task " + taskid + "." + targetRoute+" will be migrated from " + workerHostName + " to " + hosterWorker);
+//                migrateTasks(workerHostName, hosterWorker, taskid, targetRoute);
+//                System.out.println("Task " + taskid + "." + targetRoute + " has been migrated!");
+//            }
 
 //            System.out.println("Current Routing Table: ");
 //            System.out.println(getOriginalRoutingTable(taskid));
@@ -414,10 +469,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
         } catch (Exception e) {
             e.printStackTrace();
-            if(hostIp != null) {
-                ResourceManager.instance().computationResource.returnProcessor(hostIp);
+            if(targetIp != null) {
+                ResourceManager.instance().computationResource.returnProcessor(targetIp);
             }
-            System.out.println("HostIP: " + hostIp);
+            System.out.println("HostIP: " + targetIp);
             for(String name: _ipToWorkerLogicalName.keySet()) {
                 System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
             }
@@ -479,12 +534,28 @@ public class Master extends UntypedActor implements MasterService.Iface {
         return new ArrayList<>(_nameToPath.keySet());
     }
 
+    public void resourceAwareMigrateTask(String targetHostIP, int taskId, int routeNO) {
+        if(!ResourceManager.instance().computationResource.allocateProcessOnGivenNode(targetHostIP))
+            return;
+        try {
+            migrateTasks(targetHostIP, taskId, routeNO);
+            String deallocatedCore = ElasticScheduler.getInstance().getElasticExecutorStatusManager().getAllocatedCoreForARoute(taskId, routeNO);
+            ResourceManager.instance().computationResource.returnProcessor(deallocatedCore);
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().migrateRoute(taskId, routeNO, targetHostIP);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
-    public void migrateTasks(String originalHostName, String targetHostName, int taskId, int routeNo) throws MigrationException, TException {
-        if(!_nameToPath.containsKey(getHostByWorkerLogicalName(originalHostName)))
-            throw new MigrationException("originalHostName " + originalHostName + " does not exists!");
-        if(!_nameToPath.containsKey(getHostByWorkerLogicalName(targetHostName)))
-            throw new MigrationException("targetHostName " + targetHostName + " does not exists!");
+    public void migrateTasks(String targetHostIP, int taskId, int routeNo) throws MigrationException, TException {
+//        if(!_nameToPath.containsKey(getHostByWorkerLogicalName(originalHostName)))
+//            throw new MigrationException("originalHostName " + originalHostName + " does not exists!");
+        final String targetWorkerLogicalName = Master.getInstance().getAWorkerLogicalNameOnAGivenIp(targetHostIP);
+
+
+        if(!_nameToPath.containsKey(getHostByWorkerLogicalName(targetWorkerLogicalName)))
+            throw new MigrationException("targetHostName " + targetWorkerLogicalName + " does not exists!");
         try {
 //            getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskId))).tell(new TaskMigrationCommand(getHostByWorkerLogicalName(originalHostName), getHostByWorkerLogicalName(targetHostName), taskId, routeNo), getSelf());
 //            log("[Elastic]: Migration message has been sent!");
@@ -492,10 +563,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
 //            final Inbox inbox = Inbox.create(getContext().system());
 //            final Inbox inbox = getInbox();
             log("[Elastic]: Migration message has been sent!");
-            sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskId))), new TaskMigrationCommand(getHostByWorkerLogicalName(originalHostName), getHostByWorkerLogicalName(targetHostName), taskId, routeNo),10000, TimeUnit.SECONDS);
+            sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskId))), new TaskMigrationCommand(getHostByWorkerLogicalName(targetWorkerLogicalName), taskId, routeNo),10000, TimeUnit.SECONDS);
 //            inbox.receive(new FiniteDuration(10000, TimeUnit.SECONDS));
 
-            ElasticScheduler.getInstance().getElasticExecutorInfo(taskId).taskMigrate(routeNo, extractIpFromWorkerLogicalName(targetHostName));
+            ElasticScheduler.getInstance().getElasticExecutorStatusManager().migrateRoute(taskId, routeNo, extractIpFromWorkerLogicalName(targetWorkerLogicalName));
             return;
 
         } catch (Exception e) {

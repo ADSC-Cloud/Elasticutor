@@ -364,11 +364,11 @@ public class Slave extends UntypedActor {
             return;
         }
 
-        if(!_nameToPath.containsKey(taskMigrationCommand._originalHostName)) {
-            System.out.println("[Elastic]:target host "+ taskMigrationCommand._targetHostName+" does not exist!");
-            sendMessageToMaster(taskMigrationCommand._originalHostName+" does not exist! Valid names are "+_nameToPath.keySet());
-            return;
-        }
+//        if(!_nameToPath.containsKey(taskMigrationCommand._originalHostName)) {
+//            System.out.println("[Elastic]:target host "+ taskMigrationCommand._targetHostName+" does not exist!");
+//            sendMessageToMaster(taskMigrationCommand._originalHostName+" does not exist! Valid names are "+_nameToPath.keySet());
+//            return;
+//        }
         try{
 //            ElasticTaskHolder.instance().migrateSubtaskToRemoteHost(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);
             ElasticTaskHolder.instance().migrateSubtask(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);

@@ -80,7 +80,7 @@ public class WordCountTopologyElastic {
             declareStatefulOperator();
 
 //            /**
-//             * This thread periodically changes the sleep time of the execute() function,
+//             * This thread periodically changes the sleep date of the execute() function,
 //             * to test the elasticity of the system, i.e., the ability to scale in and out
 //             * according to the current workload.
 //             */
@@ -92,7 +92,7 @@ public class WordCountTopologyElastic {
 //                    while(true) {
 //                        Utils.sleep(5000);
 //                        sleepTimeInMilics = old * i;
-//                        Slave.getInstance().sendMessageToMaster("# sleep time: " + sleepTimeInMilics);
+//                        Slave.getInstance().sendMessageToMaster("# sleep date: " + sleepTimeInMilics);
 //                        i = (i+1)%15 + 1;
 //                    }
 //                }
@@ -131,7 +131,7 @@ public class WordCountTopologyElastic {
     public static void main(String[] args) throws Exception {
 
         if(args.length == 0) {
-            System.out.println("args: topology-name sleep-time-in-millis [debug|any other]");
+            System.out.println("args: topology-name sleep-date-in-millis [debug|any other]");
         }
 
         TopologyBuilder builder = new TopologyBuilder();

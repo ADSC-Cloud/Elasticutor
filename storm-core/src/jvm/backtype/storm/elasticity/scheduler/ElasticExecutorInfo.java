@@ -27,6 +27,14 @@ public class ElasticExecutorInfo {
 
     }
 
+    public ElasticExecutorInfo duplicate() {
+        ElasticExecutorInfo ret = new ElasticExecutorInfo(this.taskId, this.hostIp, this.stateSize, this.dataIntensivenessFactor);
+        ret.allocatedCores.clear();
+        ret.allocatedCores.addAll(this.allocatedCores);
+        ret.desirableParallelism = this.desirableParallelism;
+        return ret;
+    }
+
     public void updateStateSize(long stateSize) {
         this.stateSize = stateSize;
     }
@@ -99,7 +107,7 @@ public class ElasticExecutorInfo {
 
     public String toString() {
         String ret = "";
-        ret += String.format("%d, %d, %.2f", taskId, stateSize, dataIntensivenessFactor);
+        ret += String.format("{%d, %d, %.2f, %d -> %d}", taskId, stateSize, dataIntensivenessFactor, getCurrentParallelism(), desirableParallelism);
 //        ret += String.format("ID = %d, State size = %d, Data-intensiveness = %.2f", taskId, stateSize, dataIntensivenessFactor);
 
         return ret;

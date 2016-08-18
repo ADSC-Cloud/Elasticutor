@@ -182,7 +182,7 @@ public class ElasticTopologySimulator {
     public static void main(String[] args) throws Exception {
 
         if(args.length != 5) {
-            System.out.println("args: topology-name state-size-in-KB sleep-time-in-microseconds value-layload-size warm-up-time-in-seconds");
+            System.out.println("args: topology-name state-size-in-KB sleep-date-in-microseconds value-layload-size warm-up-date-in-seconds");
             System.out.println("Please correct the arguments and try again!");
             return;
         }

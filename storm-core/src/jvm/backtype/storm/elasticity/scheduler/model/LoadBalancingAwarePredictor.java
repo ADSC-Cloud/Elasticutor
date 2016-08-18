@@ -28,7 +28,7 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
 
         int desirableDoP;
 
-        if(inputRate > maxProcessingThroughput * overProvisionForAGivenDoP) {
+        if(inputRate * overProvisionForAGivenDoP > maxProcessingThroughput) {
             Slave.getInstance().sendMessageToMaster("the performance is bounded by the load balancing.");
             desirableDoP = currentDop - 1;
         } else {

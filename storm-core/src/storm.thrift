@@ -577,7 +577,7 @@ service DistributedRPCInvocations {
 
 service MasterService {
   list<string> getAllHostNames();
-  void migrateTasks(1: string originalHostName, 2: string targetHostName, 3: i32 taskId, 4: i32 routeNo) throws (1: MigrationException me);
+  void migrateTasks(1: string targetHostName, 2: i32 taskId, 3: i32 routeNo) throws (1: MigrationException me);
   void createRouting(1: string hostName, 2: i32 taskid, 3: i32 routeNo, 4: string type) throws (1: HostNotExistException hmee);
   void withdrawRemoteRoute(1: i32 taskid, 2: i32 route) throws (1: TaskNotExistException e, 2: HostNotExistException hnee);
   double reportTaskThroughput(1: i32 taskid) throws (1: TaskNotExistException tnee);

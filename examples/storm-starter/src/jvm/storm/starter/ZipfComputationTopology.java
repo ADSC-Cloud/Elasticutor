@@ -12,7 +12,7 @@ public class ZipfComputationTopology {
     public static void main(String[] args) throws Exception {
 
         if(args.length == 0) {
-            System.out.println("args: topology-name sleep-time-in-millis [debug|any other]");
+            System.out.println("args: topology-name sleep-date-in-millis [debug|any other]");
         }
 
         TopologyBuilder builder = new TopologyBuilder();

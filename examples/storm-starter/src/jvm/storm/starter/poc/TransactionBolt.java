@@ -2,10 +2,12 @@ package storm.starter.poc;
 
 import backtype.storm.elasticity.BaseElasticBolt;
 import backtype.storm.elasticity.ElasticOutputCollector;
+import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -62,13 +64,22 @@ public class TransactionBolt extends BaseElasticBolt{
             setValueByKey(getKey(input), state);
         }
 
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd HH:mm:ss.SSS");
+        Date date = null;
+        try {
+            date = format.parse(String.format("%s %s.%d", input.getStringByField(PocTopology.DATE), input.getStringByField(PocTopology.TIME), (int)(1000 * Double.parseDouble(input.getStringByField(PocTopology.MILLISECOND)))));
+        } catch (Exception e) {
+            e.printStackTrace();
+            Slave.getInstance().sendMessageToMaster(e.getMessage());
+            return;
+        }
         Record newRecord = new Record(
                 input.getLongByField(PocTopology.ORDER_NO),
                 input.getStringByField(PocTopology.ACCT_ID),
                 input.getDoubleByField(PocTopology.PRICE),
                 input.getIntegerByField(PocTopology.VOLUME),
                 input.getIntegerByField(PocTopology.SEC_CODE),
-                input.getStringByField(PocTopology.TIME));
+                date);
 
         if(input.getSourceStreamId().equals(PocTopology.BUYER_STREAM)) {
 
@@ -82,7 +93,7 @@ public class TransactionBolt extends BaseElasticBolt{
                         double tradeVolume = Math.min(newRecord.volume, sell.volume);
                         newRecord.volume -= tradeVolume;
                         sell.volume -= tradeVolume;
-                        System.out.println(String.format("User %s buy %f volume %s stock from User %s", newRecord.accountId, tradeVolume, newRecord.secCode, sell.accountId));
+                        System.out.println(String.format("User %s buy %f volume %s stock from User %s at price %.2f", newRecord.accountId, tradeVolume, newRecord.secCode, sell.accountId, sellPrice));
                         if(sell.volume == 0) {
                             records.remove(0);
                             System.out.println(String.format("Seller %s's transaction for stock %d! is completed!", sell.accountId, sell.secCode));
@@ -112,7 +123,7 @@ public class TransactionBolt extends BaseElasticBolt{
                         double tradeVolume = Math.min(newRecord.volume, buy.volume);
                         newRecord.volume -= tradeVolume;
                         buy.volume -= tradeVolume;
-                        System.out.println(String.format("User %s buy %f volume %s stock from User %s", buy.accountId, tradeVolume, buy.secCode, newRecord.accountId));
+                        System.out.println(String.format("User %s buy %f volume %s stock from User %s at price %.2f", buy.accountId, tradeVolume, buy.secCode, newRecord.accountId, BuyPrice));
                         if(buy.volume == 0) {
                             records.remove(0);
                             System.out.println(String.format("Buyer %s's transaction for stock %d! is completed!", buy.accountId, buy.secCode));

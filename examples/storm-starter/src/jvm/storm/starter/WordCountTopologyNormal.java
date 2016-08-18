@@ -122,7 +122,7 @@ public class WordCountTopologyNormal {
   public static void main(String[] args) throws Exception {
 
     if(args.length == 0) {
-      System.out.println("args: topology-name sleep-time-in-millis(for generator) sleep-time-in-millis(for count) [debug|any other]");
+      System.out.println("args: topology-name sleep-date-in-millis(for generator) sleep-date-in-millis(for count) [debug|any other]");
     }
 
     TopologyBuilder builder = new TopologyBuilder();

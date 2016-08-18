@@ -33,7 +33,7 @@ public class ResourceCentricZipfComputationTopology {
     public static void main(String[] args) throws Exception {
 
         if(args.length == 0) {
-            System.out.println("args: topology-name sleep-time-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-time-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt");
+            System.out.println("args: topology-name sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt");
         }
 
         TopologyBuilder builder = new TopologyBuilder();

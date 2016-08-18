@@ -13,7 +13,7 @@ import org.apache.thrift.transport.TTransport;
 public class MigrateTasks {
 
     public static void main(String[] args) {
-        if(args.length < 4) {
+        if(args.length < 3) {
             System.out.println("args: orignal-hostname, target-hostname, task-id, route, repeat (default = 1) ");
             return;
         }
@@ -32,12 +32,12 @@ public class MigrateTasks {
             for(int i = 0; i < repeat; i++) {
                 if(i % 2 ==0) {
                     System.out.print(String.format("From %s to %s.   ", args[0], args[1]));
-                    thriftClient.migrateTasks(args[0], args[1], Integer.parseInt(args[2]), Integer.parseInt(args[3]));
+                    thriftClient.migrateTasks(args[1], Integer.parseInt(args[2]), Integer.parseInt(args[3]));
                     System.out.println(".......................... Done");
                 }
                 else {
                     System.out.print(String.format("From %s to %s.   ", args[1], args[0]));
-                    thriftClient.migrateTasks(args[1], args[0], Integer.parseInt(args[2]), Integer.parseInt(args[3]));
+                    thriftClient.migrateTasks(args[0], Integer.parseInt(args[2]), Integer.parseInt(args[3]));
                     System.out.println(".......................... Done");
                 }
             }

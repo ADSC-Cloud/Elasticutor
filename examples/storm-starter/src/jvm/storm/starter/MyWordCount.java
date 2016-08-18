@@ -50,7 +50,7 @@ public class MyWordCount {
                     "you indicate your acceptance of this License to do so, and all its terms and conditions\n" +
                     "for copying, distributing or modifying the Program or works based on it.\n" +
                     "\n" +
-                    "6. Each time you redistribute the Program (or any work based on the Program), the\n" +
+                    "6. Each date you redistribute the Program (or any work based on the Program), the\n" +
                     "recipient automatically receives a license from the original licensor to copy,\n" +
                     "distribute or modify the Program subject to these terms and conditions. You may not\n" +
                     "impose any further restrictions on the recipients' exercise of the rights granted\n" +
@@ -92,7 +92,7 @@ public class MyWordCount {
                     "limitation as if written in the body of this License.\n" +
                     "\n" +
                     "9. The Free Software Foundation may publish revised and/or new versions of the General\n" +
-                    "Public License from time to time. Such new versions will be similar in spirit to the\n" +
+                    "Public License from date to date. Such new versions will be similar in spirit to the\n" +
                     "present version, but may differ in detail to address new problems or concerns.\n" +
                     "\n" +
                     "Each version is given a distinguishing version number. If the Program specifies a\n" +

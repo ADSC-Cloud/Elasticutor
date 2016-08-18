@@ -55,4 +55,5 @@
 # elasticity.EnableIntraExecutorLoadBalancing: 1
 # elasticity.EnableAutomaticScaling: 1
 # elasticity.IntraExecutorLoadBalancingCycle: 3000
+# elasticity.ElasticSchedulingCycleInMillisecond: 2000
 

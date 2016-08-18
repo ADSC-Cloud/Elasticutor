@@ -11,6 +11,11 @@ import backtype.storm.elasticity.resource.ResourceManager;
 import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
+import backtype.storm.elasticity.scheduler.algorithm.LocalityAndMigrationCostAwareScheduling;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingInAction;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingOutAction;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.SchedulingAction;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.TaskMigrationAction;
 import backtype.storm.elasticity.utils.FirstFitDoubleDecreasing;
 import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.elasticity.utils.PartitioningMinimizedMovement;
@@ -20,7 +25,6 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.util.ArrayQueue;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -40,7 +44,7 @@ public class ElasticScheduler {
 
     LinkedBlockingQueue<Integer> pendingTaskLevelLoadBalancingQueue = new LinkedBlockingQueue<>();
 
-    Map<Integer, ElasticExecutorInfo> taskIdToInfo = new ConcurrentHashMap<>();
+    ElasticExecutorStatusManager elasticExecutorStatusManager = new ElasticExecutorStatusManager();
 
     public ElasticScheduler(Map conf) {
 
@@ -60,7 +64,8 @@ public class ElasticScheduler {
         }
 
         if(Config.EnableAutomaticScaling) {
-            enableAutomaticScaling();
+//            enableAutomaticScaling();
+            createLocalityAndDataIntensivenessAwareScheduling();
         }
 
 
@@ -106,12 +111,23 @@ public class ElasticScheduler {
             //TODO: Solve this situation.
         }
 
-        taskIdToInfo.put(taskId, new ElasticExecutorInfo(taskId, hostIp));
+        elasticExecutorStatusManager.registerNewElasticExecutor(taskId, hostIp);
 
     }
 
-    public ElasticExecutorInfo getElasticExecutorInfo(int taskid) {
-        return taskIdToInfo.get(taskid);
+    public void unregisterElasticExecutor(int taskid) {
+        for(String core: elasticExecutorStatusManager.getAllocatedCoresForATask(taskid)) {
+            resourceManager.computationResource.returnProcessor(core);
+        }
+        elasticExecutorStatusManager.unregisterElasticExecutor(taskid);
+    }
+
+//    public ElasticExecutorInfo getElasticExecutorInfo(int taskid) {
+//        return elasticExecutorStatusManager.getTaskIdToInfo().get(taskid);
+//    }
+
+    public ElasticExecutorStatusManager getElasticExecutorStatusManager() {
+        return elasticExecutorStatusManager;
     }
 
     private void enableSubtaskLevelLoadBalancing() {
@@ -154,6 +170,44 @@ public class ElasticScheduler {
                     }
                 }
 
+            }
+        }).start();
+    }
+
+    private void createLocalityAndDataIntensivenessAwareScheduling() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+                final int sleepTimeInMilliseconds = Config.ElasticSchedulingCycleInMillisecond;
+                final double dataIntensivenessThreshold = 1024 * 1024 * 1024;
+                while (true) {
+                    try {
+                        Utils.sleep(sleepTimeInMilliseconds);
+                        Map<Integer, ElasticExecutorInfo> currentElasticExecutorInfos = ElasticScheduler.getInstance().getElasticExecutorStatusManager().getInfoSnapshot();
+                        System.out.println("Snapshot: " + currentElasticExecutorInfos.values());
+                        List<SchedulingAction> actions = scheduling.schedule(new ArrayList<>(currentElasticExecutorInfos.values()), ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
+                        System.out.println("The following actions will be performed: " + actions);
+
+                        for(SchedulingAction action: actions) {
+                            if(action instanceof ScalingOutAction) {
+                                ScalingOutAction scalingOutAction = (ScalingOutAction) action;
+                                Master.getInstance().handleExecutorScalingOutRequest(scalingOutAction.getTaskID(), scalingOutAction.targetIP);
+                            } else if (action instanceof ScalingInAction) {
+                                Master.getInstance().handleExecutorScalingInRequest(action.getTaskID());
+                            } else if (action instanceof TaskMigrationAction) {
+                                TaskMigrationAction taskMigrationAction = (TaskMigrationAction) action;
+                                final String targetWorkerLogicalName = Master.getInstance().getAWorkerLogicalNameOnAGivenIp(taskMigrationAction.targetIP);
+                                Master.getInstance().resourceAwareMigrateTask(targetWorkerLogicalName,taskMigrationAction.getTaskID(), taskMigrationAction.routeID);
+                            }
+                            System.out.println(action + " is performed!");
+                        }
+
+                        System.out.println("========== DONE =========");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }).start();
     }
@@ -500,7 +554,7 @@ public class ElasticScheduler {
 //            System.out.println("\n===================START========================");
 //            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
 //            System.out.println("Move " + reassignment.taskId + "." + reassignment.routeId + " from " + reassignment.originalHost + " to " + reassignment.targetHost);
-            master.migrateTasks(reassignment.originalHost, reassignment.targetHost, reassignment.taskId, reassignment.routeId);
+            master.migrateTasks(reassignment.targetHost, reassignment.taskId, reassignment.routeId);
 //            System.out.println("=====================END========================\n");
         }
         System.out.println(totalMovements + " subtask movements are completed!");
@@ -517,7 +571,7 @@ public class ElasticScheduler {
             for(String xdy: taskIdRouteToWorkers.keySet()) {
                 if(!taskIdRouteToWorkers.get(xdy).equals(workers.get(workerIndex))) {
                     RouteId routeId = new RouteId(xdy);
-                    plan.addSubtaskReassignment(taskIdRouteToWorkers.get(xdy), workers.get(workerIndex), routeId.TaskId, routeId.Route);
+                    plan.addSubtaskReassignment(taskIdRouteToWorkers.get(xdy), Master.getInstance().getIpForWorkerLogicalName(workers.get(workerIndex)), routeId.TaskId, routeId.Route);
                 }
                 workerIndex = (workerIndex + 1) % workers.size();
             }
@@ -539,7 +593,7 @@ public class ElasticScheduler {
         synchronized (lock) {
             for(String worker: workerLoad.keySet()) {
                 if(workerLoad.get(worker) >= Config.WorkloadHighWaterMark) {
-                    SubtaskReassignmentPlan localPlan = releaseLoadOnWorker(taskId, worker, workerLoad, taskIdRouteToWorkers);
+                    SubtaskReassignmentPlan localPlan = releaseLoadOnWorker(taskId, Master.getInstance().getIpForWorkerLogicalName(worker), workerLoad, taskIdRouteToWorkers);
                     totalPlan.concat(localPlan);
     //                totalPlan.con
                 }

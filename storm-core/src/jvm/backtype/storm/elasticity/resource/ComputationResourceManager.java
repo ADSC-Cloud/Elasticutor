@@ -1,6 +1,8 @@
 package backtype.storm.elasticity.resource;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -83,5 +85,17 @@ public class ComputationResourceManager {
         } else {
             System.out.println("Cannot find " + nodeIP + " in the computation resource manager!");
         }
+    }
+
+    synchronized public List<String> getFreeCPUCores() {
+        List<String> ret = new ArrayList<>();
+        for(String ip: nodeIpToProcessors.keySet()) {
+            int numberOfCores = nodeIpToProcessors.get(ip);
+            while(numberOfCores > 0) {
+                ret.add(ip);
+                numberOfCores--;
+            }
+        }
+        return ret;
     }
 }

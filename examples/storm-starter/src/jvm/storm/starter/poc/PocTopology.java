@@ -14,7 +14,9 @@ public class PocTopology {
     public static String ORDER_NO = "order_no";
     public static String PRICE = "price";
     public static String VOLUME = "volume";
+    public static String DATE = "date";
     public static String TIME = "time";
+    public static String MILLISECOND = "millisecond";
 
     public static String BUYER_STREAM = "buyer_stream";
     public static String SELLER_STREAM = "seller_stream";

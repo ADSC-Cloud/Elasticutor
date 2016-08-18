@@ -1,7 +1,7 @@
 package backtype.storm.elasticity.scheduler.algorithm;
 
 import backtype.storm.elasticity.scheduler.ElasticExecutorInfo;
-import backtype.storm.elasticity.scheduler.algorithm.actoin.ScaingOutAction;
+import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingOutAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingInAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.SchedulingAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.TaskMigrationAction;
@@ -13,7 +13,8 @@ import java.util.function.Predicate;
  * Created by robert on 16-8-15.
  */
 public class LocalityAndMigrationCostAwareScheduling {
-    public List<SchedulingAction> schedule(Collection<ElasticExecutorInfo> executorInfos, List<String> freeCPUCores, double dataIntensivenessThreshold) {
+    public List<SchedulingAction> schedule(List<ElasticExecutorInfo> executorInfos, List<String> freeCPUCores, double dataIntensivenessThreshold) {
+        List<SchedulingAction> actions = new ArrayList<>();
 
         // create a virtual elastic executor with all the free CPU cores.
         final int virtualExecutorTaskId = -100;
@@ -46,7 +47,6 @@ public class LocalityAndMigrationCostAwareScheduling {
         }
 
 
-        List<SchedulingAction> actions = new ArrayList<>();
 
         for(ElasticExecutorInfo executor: sortedExecutors) {
 
@@ -92,13 +92,14 @@ public class LocalityAndMigrationCostAwareScheduling {
                             overProvisionedExecutors.remove(targetExecutor);
                         }
 
-                        actions.add(new ScaingOutAction(executor.getTaskId(),hostIp));
+                        actions.add(new ScalingOutAction(executor.getTaskId(),hostIp));
                         executor.scalingOut(hostIp);
 
 
                     } else {
                         System.out.println("Scheduling algorithm fails!");
-                        return null;
+                        actions.clear();
+                        return actions;
                     }
 
                 }
@@ -106,7 +107,7 @@ public class LocalityAndMigrationCostAwareScheduling {
                 while(executor.getCurrentParallelism() < executor.getDesirableParallelism()) {
                     double overhead = Double.MAX_VALUE;
                     ScalingInAction scalingInAction = null;
-                    ScaingOutAction scalingOutAction = null;
+                    ScalingOutAction scalingOutAction = null;
                     String targetCore = null;
                     ElasticExecutorInfo scalingInExecutor = null;
                     for(ElasticExecutorInfo overProvisionedOne: overProvisionedExecutors) {
@@ -122,7 +123,7 @@ public class LocalityAndMigrationCostAwareScheduling {
                                 } else {
                                     scalingInAction = new ScalingInAction(overProvisionedOne.getTaskId(), overProvisionedOne.getRouteIdForACore(core), false);
                                 }
-                                scalingOutAction = new ScaingOutAction(executor.getTaskId(), core);
+                                scalingOutAction = new ScalingOutAction(executor.getTaskId(), core);
                                 targetCore = core;
                                 scalingInExecutor = overProvisionedOne;
 
@@ -154,7 +155,8 @@ public class LocalityAndMigrationCostAwareScheduling {
                         executor.scalingOut(targetCore);
                     } else {
                         System.out.println("Scheduling algorithm fails!");
-                        return null;
+                        actions.clear();
+                        return actions;
                     }
 
                 }
@@ -227,7 +229,7 @@ public class LocalityAndMigrationCostAwareScheduling {
         LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
         List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 600.0);
         boolean pass = true;
-        if(!(actions.get(0) instanceof ScaingOutAction)||!((ScaingOutAction)actions.get(0)).targetIP.equals("192.168.1.192"))
+        if(!(actions.get(0) instanceof ScalingOutAction)||!((ScalingOutAction)actions.get(0)).targetIP.equals("192.168.1.192"))
             pass = false;
         if(!(actions.size() == 1))
             pass = false;

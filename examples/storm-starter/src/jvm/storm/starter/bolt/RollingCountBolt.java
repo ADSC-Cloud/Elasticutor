@@ -51,7 +51,7 @@ import java.util.Map.Entry;
  * Note: During the startup phase you will usually observe that the bolt warns you about the actual sliding window
  * length being smaller than the expected length. This behavior is expected and is caused by the way the sliding window
  * counts are initially "loaded up". You can safely ignore this warning during startup (e.g. you will see this warning
- * during the first ~ five minutes of startup time if the window length is set to five minutes).
+ * during the first ~ five minutes of startup date if the window length is set to five minutes).
  */
 public class RollingCountBolt extends BaseRichBolt {
 
