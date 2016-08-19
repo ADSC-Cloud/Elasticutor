@@ -143,6 +143,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 state.insertSell(newRecord);
             }
         }
+        collector.ack(input);
 
     }
 

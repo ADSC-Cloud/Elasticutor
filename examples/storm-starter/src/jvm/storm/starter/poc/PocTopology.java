@@ -29,11 +29,16 @@ public class PocTopology {
 
     public static void main(String[] args) {
 
+        if(args.length < 4) {
+            System.out.println("args: topology-name file-path spout-parallelism transaction-bolt-parallelism statistics-bolt-parallelism");
+            return;
+        }
+
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout(Spout, new Spout(args[1]), 1);
-        builder.setBolt(TransactionBolt, new ComputationIntensiveTransactionBolt(), 1).fieldsGrouping(Spout, BUYER_STREAM, new Fields(SEC_CODE)).fieldsGrouping(Spout, SELLER_STREAM, new Fields(SEC_CODE));
-        builder.setBolt(StatisticsBolt, new StatisticsBolt(), 1).fieldsGrouping(TransactionBolt, TRANSACTION_STREAM, new Fields(SEC_CODE));
+        builder.setSpout(Spout, new Spout(args[1]), Integer.parseInt(args[2]));
+        builder.setBolt(TransactionBolt, new ComputationIntensiveTransactionBolt(), Integer.parseInt(args[3])).fieldsGrouping(Spout, BUYER_STREAM, new Fields(SEC_CODE)).fieldsGrouping(Spout, SELLER_STREAM, new Fields(SEC_CODE));
+        builder.setBolt(StatisticsBolt, new StatisticsBolt(), Integer.parseInt(args[4])).fieldsGrouping(TransactionBolt, TRANSACTION_STREAM, new Fields(SEC_CODE));
 
         Config config = new Config();
 
