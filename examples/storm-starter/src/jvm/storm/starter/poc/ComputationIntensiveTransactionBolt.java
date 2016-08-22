@@ -20,49 +20,56 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
 
     public static class State implements Serializable{
 
-        public Map<Long, Record> buys;
-        public Map<Long, Record> sells;
+        public List<Record> buys;
+        public List<Record> sells;
 
         public State() {
-            sells = new HashMap<>();
-            buys = new HashMap<>();
+            sells = new ArrayList<>();
+            buys = new ArrayList<>();
         }
 
         public List<Record> getSells() {
-            List<Record> list = new ArrayList<>(sells.values());
+            List<Record> list = new ArrayList<>(sells);
             Collections.sort(list, Record.getPriceComparator());
             return list;
         }
 
         public List<Record> getBuys() {
-            List<Record> list = new ArrayList<>(buys.values());
+            List<Record> list = new ArrayList<>(buys);
             Collections.sort(list, Record.getPriceReverseComparator());
             return list;
         }
 
 
+        final int maxHistory = 1000;
 
         public void insertBuy(Record record) {
-            buys.put(record.orderNo, record);
+            if(buys.size() >= maxHistory) {
+                buys.remove(0);
+            }
+            buys.add(record);
         }
 
         public void insertSell(Record record) {
-            sells.put(record.orderNo, record);
+            if(sells.size() >= maxHistory) {
+                sells.remove(0);
+            }
+            sells.add(record);
         }
 
         public void updateSell(Record record) {
-            sells.put(record.orderNo, record);
+            sells.add(record);
         }
 
         public void updateBuy(Record record) {
-            buys.put(record.orderNo, record);
+            buys.add(record);
         }
 
         public void removeBuy(Record record) {
-            buys.remove(record.orderNo);
+            buys.remove(record);
         }
         public void removeSell(Record record) {
-            sells.remove(record.orderNo);
+            sells.remove(record);
         }
     }
     @Override

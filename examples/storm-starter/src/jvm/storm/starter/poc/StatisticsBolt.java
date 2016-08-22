@@ -7,8 +7,6 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -28,7 +26,10 @@ public class StatisticsBolt extends BaseElasticBolt {
 
     class TransactionHistory implements Serializable {
         ConcurrentLinkedQueue<TransactionRecord> transactions = new ConcurrentLinkedQueue<>();
+        final int maxHistory = 1000;
         public void insertNewRecord(double price, double volume) {
+            if(transactions.size() >= maxHistory)
+                transactions.poll();
             transactions.add(new TransactionRecord(price, volume));
         }
 

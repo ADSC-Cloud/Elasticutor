@@ -1,5 +1,6 @@
 package storm.starter.poc;
 
+
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
@@ -35,6 +36,11 @@ public class Record implements Serializable {
         this.volume = volume;
         this.secCode = secCode;
         this.date = date;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof Record && ((Record) obj).orderNo == orderNo;
     }
 
     public static Comparator<Record> getPriceComparator() {
