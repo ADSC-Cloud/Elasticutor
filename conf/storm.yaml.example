@@ -56,4 +56,5 @@
 # elasticity.EnableAutomaticScaling: 1
 # elasticity.IntraExecutorLoadBalancingCycle: 3000
 # elasticity.ElasticSchedulingCycleInMillisecond: 2000
+# elasticity.cpu.budget: 8
 

@@ -308,10 +308,16 @@ public class Slave extends UntypedActor {
     void register(Member member) {
         if(member.hasRole("master")) {
             _master = getContext().actorSelection(member.address()+"/user/master");
+
+            int numberOfCores = ResourceMonitor.getNumberOfProcessors();
+            if(backtype.storm.elasticity.config.Config.CPUBudget > 0) {
+                numberOfCores = Math.min(backtype.storm.elasticity.config.Config.CPUBudget, numberOfCores);
+            }
+
             if(supervisorActor) {
-                _master.tell(new SupervisorRegistrationMessage(_name, _port, Math.min(8, ResourceMonitor.getNumberOfProcessors())),getSelf());
+                _master.tell(new SupervisorRegistrationMessage(_name, _port, numberOfCores),getSelf());
             } else {
-                _master.tell(new WorkerRegistrationMessage(_name, _port, Math.min(8, ResourceMonitor.getNumberOfProcessors())),getSelf());
+                _master.tell(new WorkerRegistrationMessage(_name, _port, numberOfCores),getSelf());
             }
 
             System.out.println("I have sent registration message to master.");

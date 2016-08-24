@@ -35,6 +35,12 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
     public ZipfSpout(){
 
     }
+
+    public ZipfSpout(int keys, double skewness) {
+        this._numberOfElements = keys;
+        this._exponent = skewness;
+    }
+
     public class ChangeDistribution implements Runnable {
         public void run() {
             Random random = new Random(0);
@@ -79,10 +85,10 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
 
     public void open(Map conf, TopologyContext context, SpoutOutputCollector collector){
         _collector = collector;
-        _numberOfElements = 1000;
-        _exponent = 1;
+//        _numberOfElements = 1000;
+//        _exponent = 1;
         _instance = this;
-        _sleepTimeInMilics = 60000;
+        _sleepTimeInMilics = 30000;
         _seed = Math.abs(new Random().nextInt());
      //   createThriftServiceThread();
         _collector.emit(new Values(String.valueOf(_numberOfElements), String.valueOf(_exponent), (_seed)));

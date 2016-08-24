@@ -37,6 +37,8 @@ public class Config {
         SubtaskLevelLoadBalancingCycleInMilliSecs = readInteger(conf, "elasticity.IntraExecutorLoadBalancingCycle", 1000);
 
         ElasticSchedulingCycleInMillisecond = readInteger(conf, "elasticity.ElasticSchedulingCycleInMillisecond", 2000);
+
+        CPUBudget = readInteger(conf, "elasticity.cpu.budget", 0);
     }
 
     static int readInteger(Map conf, String key, int defaultValue) {
@@ -110,6 +112,8 @@ public class Config {
     public static int latencyMaximalTimeIntervalInSecond = 1;
 
     public static double taskLevelLoadBalancingThreshold = 0.2;
+
+    public static int CPUBudget = 0;
 
     public static String masterIp = "10.21.25.214";
 

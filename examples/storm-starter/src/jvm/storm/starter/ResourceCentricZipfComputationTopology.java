@@ -33,17 +33,18 @@ public class ResourceCentricZipfComputationTopology {
     public static void main(String[] args) throws Exception {
 
         if(args.length == 0) {
-            System.out.println("args: topology-name sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt");
+            System.out.println("args: topology-name number-of-keys skewness sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt");
         }
 
         TopologyBuilder builder = new TopologyBuilder();
 
         if(args.length < 3) {
             System.out.println("the number of args should be at least 1");
+            return;
         }
-        builder.setSpout(Spout, new ZipfSpout(), 1);
+        builder.setSpout(Spout, new ZipfSpout(Integer.parseInt(args[1]), Double.parseDouble(args[2])), 1);
 
-        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[1])),Integer.parseInt(args[2]))
+        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3])),Integer.parseInt(args[4]))
                 .allGrouping(Spout)
                 .allGrouping(Controller, UpstreamCommand)
                 .allGrouping(Controller, SeedUpdateStream)
@@ -51,7 +52,7 @@ public class ResourceCentricZipfComputationTopology {
                 .directGrouping(ComputationBolt, PuncutationFeedbackStreawm);
 
 
-        builder.setBolt(ComputationBolt, new ResourceCentricComputationBolt(Integer.parseInt(args[3])), Integer.parseInt(args[4]))
+        builder.setBolt(ComputationBolt, new ResourceCentricComputationBolt(Integer.parseInt(args[5])), Integer.parseInt(args[6]))
                 .directGrouping(GeneratorBolt)
                 .directGrouping(GeneratorBolt, StateMigrationCommandStream)
                 .directGrouping(Controller, StateUpdateStream)
