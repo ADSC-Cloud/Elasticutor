@@ -375,10 +375,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     public void handleExecutorScalingOutRequest(int taskid, String targetIp) throws TException {
 
-        if(!ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(targetIp).equals(targetIp)) {
-            System.out.println("Cannot get cores from " + targetIp);
-            return;
-        }
+//        if(!ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(targetIp).equals(targetIp)) {
+//            System.out.println("Cannot get cores from " + targetIp);
+//            return;
+//        }
 
         String workerHostName = _elasticTaskIdToWorkerLogicalName.get(taskid);
         String hostIP = getIpForWorkerLogicalName(workerHostName);
