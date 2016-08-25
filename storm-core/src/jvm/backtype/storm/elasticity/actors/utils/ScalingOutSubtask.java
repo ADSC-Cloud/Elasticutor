@@ -12,9 +12,14 @@ import org.apache.thrift.transport.TTransport;
  */
 public class ScalingOutSubtask {
     public static void main(String[] args) {
-        if(args.length!=1) {
-            System.out.println("args: task-id");
+        if(args.length!=1 && args.length!=2) {
+            System.out.println("args: task-id [repeated]");
             return;
+        }
+
+        int repeat = 1;
+        if(args.length == 2) {
+            repeat = Integer.parseInt(args[1]);
         }
 
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
@@ -24,7 +29,9 @@ public class ScalingOutSubtask {
             TProtocol protocol = new TBinaryProtocol(transport);
 
             MasterService.Client thriftClient = new MasterService.Client(protocol);
-            thriftClient.scalingOutSubtask(Integer.parseInt(args[0]));
+            while(repeat-- > 0) {
+                thriftClient.scalingOutSubtask(Integer.parseInt(args[0]));
+            }
             transport.close();
         } catch (TException e) {
             e.printStackTrace();
