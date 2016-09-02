@@ -18,6 +18,7 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -80,7 +81,7 @@ public class EmitTestTopology {
     static public class MyElasticBolt extends BaseElasticBolt {
         List<Integer> downstreamTasks;
         @Override
-        public Object getKey(Tuple tuple) {
+        public Serializable getKey(Tuple tuple) {
             return new Random().nextInt();
         }
 

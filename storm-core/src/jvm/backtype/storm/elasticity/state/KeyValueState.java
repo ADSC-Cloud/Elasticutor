@@ -4,6 +4,7 @@ import org.apache.commons.lang.SerializationUtils;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -11,16 +12,16 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class KeyValueState implements Serializable {
 
-    private Map<Object, Object> state = new ConcurrentHashMap<>();
+    private Map<Serializable, Serializable> state = new ConcurrentHashMap<>();
 
-    public Object getValueByKey(Object key) {
+    public Serializable getValueByKey(Object key) {
         if (state.containsKey(key))
             return state.get(key);
         else
             return null;
     }
 
-    public synchronized void setValueByKey(Object key, Object value) {
+    public void setValueByKey(Serializable key, Serializable value) {
         state.put(key,value);
     }
 
@@ -28,17 +29,17 @@ public class KeyValueState implements Serializable {
         state.putAll(newState.state);
     }
 
-    public void update(Map<Object, Object> newState) {
+    public void update(Map<Serializable, Serializable> newState) {
         state.putAll(newState);
     }
 
-    public Map<Object, Object> getState() {
+    public Map<Serializable, Serializable> getState() {
         return state;
     }
 
-    public synchronized KeyValueState getValidState(StateFilter filter) {
+    public KeyValueState getValidState(StateFilter filter) {
         KeyValueState ret = new KeyValueState();
-        for(Object key: state.keySet()) {
+        for(Serializable key: state.keySet()) {
             if(filter.isValid(key)) {
                 ret.setValueByKey(key, state.get(key));
             }
@@ -56,7 +57,20 @@ public class KeyValueState implements Serializable {
      * TODO: using sampling to reduce the overhead of size estimation
      * @return state size
      */
-    public long getStateSize() {
-        return SerializationUtils.serialize(this).length;
+    public long  getStateSize() {
+//        return SerializationUtils.serialize(this).length;
+
+        long size = 0;
+        double sampleRate = 0.1;
+        Random random = new Random();
+        for(Serializable key: state.keySet()) {
+            try {
+                if (random.nextDouble() < sampleRate)
+                    size += SerializationUtils.serialize(key).length + SerializationUtils.serialize(state.get(key)).length;
+            } catch (Exception e) {
+
+            }
+        }
+        return (long) (size / sampleRate);
     }
 }

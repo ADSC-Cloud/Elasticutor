@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import org.apache.commons.math3.*;
 import storm.starter.util.ComputationSimulator;
 
+import java.io.Serializable;
 import java.util.*;
 /**
  * Created by acelzj on 19/04/16.
@@ -61,7 +62,7 @@ public class ZipfTopologyElastic {
         }
 
         @Override
-        public Object getKey(Tuple tuple) {
+        public Serializable getKey(Tuple tuple) {
             return tuple.getString(0);
         }
     }

@@ -7,6 +7,7 @@ import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
 
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -16,7 +17,7 @@ import java.util.*;
 public class TransactionBolt extends BaseElasticBolt{
     enum direction{buy, sell};
 
-    public static class State{
+    public static class State implements Serializable{
 
         public TreeMap<Double, List<Record>> sells;
         public TreeMap<Double, List<Record>> buys;
@@ -51,7 +52,7 @@ public class TransactionBolt extends BaseElasticBolt{
         }
     }
     @Override
-    public Object getKey(Tuple tuple) {
+    public Serializable getKey(Tuple tuple) {
         return tuple.getIntegerByField(PocTopology.SEC_CODE);
     }
 

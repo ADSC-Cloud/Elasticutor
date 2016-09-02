@@ -32,6 +32,7 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import storm.starter.spout.RandomSentenceSpout;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -81,7 +82,7 @@ public class WordCountTopologyMy {
       }
 
       @Override
-    public Object getKey(Tuple tuple) {
+    public Serializable getKey(Tuple tuple) {
       return tuple.getString(0);
     }
   }

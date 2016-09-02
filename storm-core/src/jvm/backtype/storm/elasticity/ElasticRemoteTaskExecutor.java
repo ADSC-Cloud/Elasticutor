@@ -15,6 +15,7 @@ import backtype.storm.elasticity.state.*;
 import backtype.storm.utils.Utils;
 import org.apache.commons.lang.SerializationUtils;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +54,7 @@ public class ElasticRemoteTaskExecutor {
         _bolt = bolt;
     }
 
-    public void prepare(Map<Object, Object> state ) {
+    public void prepare(Map<Serializable, Serializable> state ) {
         _outputCollector = new RemoteElasticOutputCollector(_resultQueue, _elasticTasks.get_taskID());
         KeyValueState keyValueState = new KeyValueState();
         keyValueState.getState().putAll(state);
@@ -207,7 +208,7 @@ public class ElasticRemoteTaskExecutor {
         KeyValueState state = _elasticTasks.get_bolt().getState();
         KeyValueState stateForRoutes = new KeyValueState();
         HashSet<Integer> routeSet = new HashSet<>(routes);
-        for (Object key: state.getState().keySet()) {
+        for (Serializable key: state.getState().keySet()) {
             if(routeSet.contains(_elasticTasks.get_routingTable().route(key))) {
                 stateForRoutes.setValueByKey(key, state.getValueByKey(key));
             }

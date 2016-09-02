@@ -14,17 +14,17 @@ public abstract class BaseElasticBolt implements Serializable {
 
     private transient KeyValueState state;
 
-    public abstract Object getKey(Tuple tuple);
+    public abstract Serializable getKey(Tuple tuple);
 
-    public Object getValueByKey(Object key) {
+    public Serializable getValueByKey(Serializable key) {
         return state.getValueByKey(key);
     }
 
-    public void removeValueByKey(Object key) {
+    public void removeValueByKey(Serializable key) {
         state.removeValueByKey(key);
     }
 
-    public void setValueByKey(Object key, Object value) {
+    public void setValueByKey(Serializable key, Serializable value) {
         state.setValueByKey(key, value);
     }
 

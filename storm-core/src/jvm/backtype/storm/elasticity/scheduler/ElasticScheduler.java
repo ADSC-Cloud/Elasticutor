@@ -12,6 +12,7 @@ import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
 import backtype.storm.elasticity.scheduler.algorithm.LocalityAndMigrationCostAwareScheduling;
+import backtype.storm.elasticity.scheduler.algorithm.SchedulerComparisonHelper;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingInAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.ScalingOutAction;
 import backtype.storm.elasticity.scheduler.algorithm.actoin.SchedulingAction;
@@ -186,8 +187,18 @@ public class ElasticScheduler {
                         Utils.sleep(sleepTimeInMilliseconds);
                         synchronized (lock) {
                             Map<Integer, ElasticExecutorInfo> currentElasticExecutorInfos = ElasticScheduler.getInstance().getElasticExecutorStatusManager().getInfoSnapshot();
+                            List<ElasticExecutorInfo> elasticExecutorInfos = new ArrayList<>(currentElasticExecutorInfos.values());
+
+                            if(Config.DisableStateSizeInfo) {
+                                SchedulerComparisonHelper.disableStateSizeInfo(elasticExecutorInfos);
+                            }
+
+                            if(Config.DisableDataIntensivenessInfo) {
+                                SchedulerComparisonHelper.disableDataIntensivenessInfo(elasticExecutorInfos);
+                            }
+
                             System.out.println("Snapshot: " + currentElasticExecutorInfos.values());
-                            List<SchedulingAction> actions = scheduling.schedule(new ArrayList<>(currentElasticExecutorInfos.values()), ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
+                            List<SchedulingAction> actions = scheduling.schedule(elasticExecutorInfos, ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
                             System.out.println("The following actions will be performed: " + actions);
 
                             for (SchedulingAction action : actions) {

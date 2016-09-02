@@ -58,15 +58,17 @@ public class Spout extends BaseRichSpout {
             String time2 = values[3];
             String time3 = values[4];
 
+            long currentTime = System.currentTimeMillis();
+
 //            for(int i=0;i<values.length;i++) {
 //                System.out.println(String.format("%d: %s", i, values[i]));
 //            }
 
             String direction = values[22];
             if(direction.equals("S")) {
-                collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3), new Object());
+                collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime), new Object());
             } else {
-                collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3), new Object());
+                collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime), new Object());
             }
 
 
@@ -77,7 +79,7 @@ public class Spout extends BaseRichSpout {
     }
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND));
-        declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND));
+        declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
+        declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
     }
 }

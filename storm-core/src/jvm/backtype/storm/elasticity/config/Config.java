@@ -39,6 +39,10 @@ public class Config {
         ElasticSchedulingCycleInMillisecond = readInteger(conf, "elasticity.ElasticSchedulingCycleInMillisecond", 2000);
 
         CPUBudget = readInteger(conf, "elasticity.cpu.budget", 0);
+
+        DisableDataIntensivenessInfo = readBoolean(conf, "elasticity.scheduler.DisableDataIntensivenessInfo", false);
+
+        DisableStateSizeInfo = readBoolean(conf, "elasticity.scheduler.DisableStateSizeInfo", false);
     }
 
     static int readInteger(Map conf, String key, int defaultValue) {
@@ -115,8 +119,12 @@ public class Config {
 
     public static int CPUBudget = 0;
 
-    public static String masterIp = "10.21.25.214";
+    public static String masterIp = "192.168.0.183";
 
-    public static String slaveIp = "10.21.25.214";
+    public static String slaveIp = "192.168.0.183";
+
+    public static boolean DisableDataIntensivenessInfo = false;
+
+    public static boolean DisableStateSizeInfo = false;
 
 }

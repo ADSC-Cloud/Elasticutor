@@ -24,20 +24,22 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
         public List<Record> sells;
 
         public State() {
-            sells = new ArrayList<>();
-            buys = new ArrayList<>();
+            sells = Collections.synchronizedList(new ArrayList<Record>());
+            buys = Collections.synchronizedList(new ArrayList<Record>());
         }
 
         public List<Record> getSells() {
             List<Record> list = new ArrayList<>(sells);
             Collections.sort(list, Record.getPriceComparator());
             return list;
+//            return sells;
         }
 
         public List<Record> getBuys() {
             List<Record> list = new ArrayList<>(buys);
             Collections.sort(list, Record.getPriceReverseComparator());
             return list;
+//            return buys;
         }
 
 
@@ -57,13 +59,13 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             sells.add(record);
         }
 
-        public void updateSell(Record record) {
-            sells.add(record);
-        }
-
-        public void updateBuy(Record record) {
-            buys.add(record);
-        }
+//        public void updateSell(Record record) {
+//            sells.add(record);
+//        }
+//
+//        public void updateBuy(Record record) {
+//            buys.add(record);
+//        }
 
         public void removeBuy(Record record) {
             buys.remove(record);
@@ -73,7 +75,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
         }
     }
     @Override
-    public Object getKey(Tuple tuple) {
+    public Serializable getKey(Tuple tuple) {
         return tuple.getIntegerByField(PocTopology.SEC_CODE);
     }
 
@@ -116,7 +118,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 double tradeVolume = Math.min(newRecord.volume, sell.volume);
                 newRecord.volume -= tradeVolume;
                 sell.volume -= tradeVolume;
-                state.updateSell(sell);
+//                state.updateSell(sell);
                 collector.emit(PocTopology.TRANSACTION_STREAM, new Values(input.getIntegerByField(PocTopology.SEC_CODE), newRecord.price, tradeVolume));
 //                System.out.println(String.format("User %s buys %f volume %s stock from User %s at price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, sell.accountId, sell.price, format.format(newRecord.date)));
                 if(sell.volume == 0) {
@@ -138,7 +140,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 double tradeVolume = Math.min(newRecord.volume, buy.volume);
                 newRecord.volume -= tradeVolume;
                 buy.volume -= tradeVolume;
-                state.updateBuy(buy);
+//                state.updateBuy(buy);
                 collector.emit(PocTopology.TRANSACTION_STREAM, new Values(input.getIntegerByField(PocTopology.SEC_CODE), newRecord.price, tradeVolume));
 //                System.out.println(String.format("User %s sells %f volume %s stock to User %s price %.2f on %s.", newRecord.accountId, tradeVolume, newRecord.secCode, buy.accountId, buy.price, format.format(newRecord.date)));
                 if(buy.volume == 0) {
@@ -150,6 +152,8 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
                 state.insertSell(newRecord);
             }
         }
+        long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
+        collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
         collector.ack(input);
 
     }
@@ -157,6 +161,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declareStream(PocTopology.TRANSACTION_STREAM, new Fields(PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME));
+        declarer.declareStream(PocTopology.LATENCY_REPORT_STREAM, new Fields(PocTopology.EMIT_TIME_STAMP));
 
     }
 

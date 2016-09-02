@@ -44,6 +44,7 @@ import org.apache.commons.lang.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.*;
@@ -199,7 +200,7 @@ public class ElasticTaskHolder {
             KeyValueState state = new KeyValueState();
 
             if(existingState != null) {
-                for(Object key: existingState.getState().keySet()) {
+                for(Serializable key: existingState.getState().keySet()) {
     //                System.out.println("---->");
                     if(complementHashingRouting.route(key)>=0) {
                         state.setValueByKey(key, existingState.getValueByKey(key));

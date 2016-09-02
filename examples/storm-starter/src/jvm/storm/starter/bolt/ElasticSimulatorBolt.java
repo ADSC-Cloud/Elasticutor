@@ -10,6 +10,7 @@ import backtype.storm.tuple.Values;
 import storm.starter.WordCountTopologyElastic;
 import storm.starter.util.ComputationSimulator;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -49,7 +50,7 @@ public class ElasticSimulatorBolt extends BaseElasticBolt{
     }
 
     @Override
-    public Object getKey(Tuple tuple) {
+    public Serializable getKey(Tuple tuple) {
         return tuple.getString(0);
     }
 }

@@ -19,6 +19,7 @@ import backtype.storm.utils.Utils;
 import storm.starter.spout.RandomSentenceSpout;
 import storm.starter.util.ComputationSimulator;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Random;
 
@@ -100,7 +101,7 @@ public class WordCountTopologyElastic {
         }
 
         @Override
-        public Object getKey(Tuple tuple) {
+        public Serializable getKey(Tuple tuple) {
             return tuple.getString(0);
         }
     }

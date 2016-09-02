@@ -20,6 +20,7 @@ import storm.starter.surveillance.ThroughputMonitor;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.util.*;
 
 /**
@@ -142,14 +143,14 @@ public class MyWordCount {
     public static class MyCounter extends BaseElasticBolt {
 
         @Override
-        public Object getKey(Tuple tuple) {
+        public Serializable getKey(Tuple tuple) {
             return tuple.getString(0);
         }
 
         @Override
         public void execute(Tuple input, ElasticOutputCollector collector) {
             Utils.sleep(100);
-            Object key = getKey(input);
+            Serializable key = getKey(input);
             Long count = (Long)getValueByKey(key);
             if (count == null)
                 count = 0L;

@@ -3,6 +3,7 @@ package backtype.storm.elasticity.message.actormessage;
 import backtype.storm.elasticity.ElasticTasks;
 import backtype.storm.elasticity.state.*;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -16,7 +17,7 @@ public class ElasticTaskMigrationMessage implements IMessage {
 
     public String _ip;
 
-    public Map<Object, Object> state;
+    public Map<Serializable, Serializable> state;
 
 
     public ElasticTaskMigrationMessage(ElasticTasks task, int port, KeyValueState s) {

@@ -18,6 +18,7 @@ import backtype.storm.tuple.Values;
 import backtype.storm.tuple.Tuple;
 import storm.starter.spout.InputGeneratorSpout;
 
+import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.util.Map;
 import java.util.Random;
@@ -117,7 +118,7 @@ public class ElasticTopologySimulator {
         }
 
         @Override
-        public Object getKey(Tuple tuple) {
+        public Serializable getKey(Tuple tuple) {
             return tuple.getLong(0);
         }
     }

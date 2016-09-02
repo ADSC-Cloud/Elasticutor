@@ -58,3 +58,8 @@
 # elasticity.ElasticSchedulingCycleInMillisecond: 2000
 # elasticity.cpu.budget: 8
 
+## Elastic Scheduler:
+
+# elasticity.scheduler.DisableDataIntensivenessInfo: 1
+# elasticity.scheduler.DisableStateSizeInfo: 1
+

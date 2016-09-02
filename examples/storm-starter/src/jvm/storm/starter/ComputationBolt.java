@@ -22,6 +22,7 @@ import backtype.storm.utils.Utils;
 import storm.starter.spout.RandomSentenceSpout;
 import storm.starter.util.ComputationSimulator;
 
+import java.io.Serializable;
 import java.util.Map;
 public class ComputationBolt extends BaseElasticBolt{
     int sleepTimeInMilics;
@@ -61,7 +62,7 @@ public class ComputationBolt extends BaseElasticBolt{
     }
 
     @Override
-    public Object getKey(Tuple tuple) {
+    public Serializable getKey(Tuple tuple) {
         return tuple.getString(0);
     }
 

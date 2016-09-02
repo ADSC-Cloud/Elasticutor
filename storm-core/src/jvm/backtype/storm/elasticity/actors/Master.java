@@ -61,6 +61,8 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     private BlockingQueue<Inbox> inboxes = new LinkedBlockingQueue<>();
 
+    private Inbox prioritizedInbox = Inbox.create(getContext().system());
+
     static Master _instance;
 
     public static Master getInstance() {
@@ -89,6 +91,15 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     private void returnInbox(Inbox inbox) throws InterruptedException {
         inboxes.put(inbox);
+    }
+
+    private synchronized Object sendAndReceiveWithPriority(ActorRef ref, Object message) throws TimeoutException, InterruptedException {
+        return sendAndReceiveWithPriority(ref, message, 3000, TimeUnit.SECONDS);
+    }
+
+    private synchronized Object sendAndReceiveWithPriority(ActorRef ref, Object message, int timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException {
+        prioritizedInbox.send(ref, message);
+        return prioritizedInbox.receive(new FiniteDuration(timeout, timeUnit));
     }
 
     private synchronized Object sendAndReceive(ActorRef ref, Object message) throws TimeoutException, InterruptedException {
@@ -614,7 +625,8 @@ public class Master extends UntypedActor implements MasterService.Iface {
             throw new TaskNotExistException("task " + taskid + " does not exist!");
         final double ret;
         try {
-            ret = (double)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
+            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
+//            ret = (double)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
             return ret;
         } catch (Exception e) {
             System.out.print("[DEBUG:]");

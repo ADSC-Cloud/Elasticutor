@@ -16,6 +16,7 @@ import backtype.storm.utils.RateTracker;
 import backtype.storm.utils.Utils;
 import storm.starter.util.ComputationSimulator;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -142,8 +143,8 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
     }
 
     @Override
-    public Object getKey(Tuple tuple) {
-        return tuple.getValue(0);
+    public Serializable getKey(Tuple tuple) {
+        return (Serializable) tuple.getValue(0);
     }
 
 }
