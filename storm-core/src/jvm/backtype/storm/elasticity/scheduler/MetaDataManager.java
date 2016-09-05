@@ -10,25 +10,36 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class MetaDataManager {
     private AtomicLong stateMigrationSize = new AtomicLong(0);
+    private AtomicLong intraExecutorDataTransferSize = new AtomicLong(0);
 
     public MetaDataManager() {
-        final int printCyclesInMilliseconds = 1000;
-        if(Config.EnableStateMigratedMetrics) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while(true) {
-                        Utils.sleep(printCyclesInMilliseconds);
-                        System.out.println(String.format("State migrated: %d",stateMigrationSize.get()));
-                        stateMigrationSize.set(0);
+        final int printCyclesInMilliseconds = 3000;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    Utils.sleep(printCyclesInMilliseconds);
+
+                    if (Config.EnableStateMigratedMetrics) {
+                        System.out.println(String.format("State migrated: %d", stateMigrationSize.getAndSet(0)));
+                    }
+
+                    if(Config.EnableIntraExecutorDataTransferMetrics) {
+                        System.out.println(String.format("Intra-Executor data transfer: %d", intraExecutorDataTransferSize.getAndSet(0)));
                     }
                 }
-            }).start();
-        }
+            }
+        }).start();
+        System.out.println("State migration display thread is created!");
+
     }
 
     public void reportStateMigration(long size) {
         stateMigrationSize.addAndGet(size);
+    }
+
+    public void reportIntraExecutorDataTransfer(long size) {
+        intraExecutorDataTransferSize.addAndGet(size);
     }
 
 }

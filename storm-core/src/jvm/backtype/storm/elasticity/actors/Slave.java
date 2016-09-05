@@ -348,6 +348,10 @@ public class Slave extends UntypedActor {
         _master.tell(new StateMigrationReportMessage(stateSize), getSender());
     }
 
+    public void reportIntraExecutorDataTransferToMaster(long size) {
+        _master.tell(new IntraExecutorDataTransferReportMessage(size), getSender());
+    }
+
 
     public void logOnMaster(String message) {
         try {

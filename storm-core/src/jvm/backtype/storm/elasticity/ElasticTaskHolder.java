@@ -13,6 +13,7 @@ import backtype.storm.elasticity.exceptions.TaskNotExistingException;
 import backtype.storm.elasticity.message.taksmessage.*;
 import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.metrics.ThroughputForRoutes;
+import backtype.storm.elasticity.metrics.WorkerMetrics;
 import backtype.storm.elasticity.resource.ResourceMonitor;
 import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
@@ -351,6 +352,7 @@ public class ElasticTaskHolder {
 //                                    byte[] bytes = SerializationUtils.serialize(remoteTupleExecuteResult);
 //                                    _originalTaskIdToExecutorResultConnection.get(remoteTupleExecuteResult._originalTaskID).send(remoteTupleExecuteResult._originalTaskID, bytes);
                                     byte[] bytes = remoteTupleExecuteResultSerializer.serialize(remoteTupleExecuteResult);
+                                    WorkerMetrics.getInstance().recordRemoteTaskTupleOrExecutionResultTransfer(bytes.length);
 //                                    RemoteTupleExecuteResult recovered = remoteTupleExecuteResultDeserializer.deserializeToTuple(bytes);
 //
 //                                    if(recovered._originalTaskID!=remoteTupleExecuteResult._originalTaskID) {
@@ -387,7 +389,7 @@ public class ElasticTaskHolder {
                                     }
                                 }
                                 byte[] bytes = tupleSerializer.serialize(remoteTuple._tuple);
-
+                                WorkerMetrics.getInstance().recordRemoteTaskTupleOrExecutionResultTransfer(bytes.length);
                                 TaskMessage taskMessage = new TaskMessage(remoteTuple._taskId + 10000, bytes);
                                 taskMessage.setRemoteTuple();
                                 insertToConnectionToTaskMessageArray(iConnectionNameToTaskMessageArray, connectionNameToIConnection, _taskidRouteToConnection.get(key), taskMessage);
@@ -814,7 +816,7 @@ public class ElasticTaskHolder {
         remoteState.markAsFinalized();
         if(_originalTaskIdToPriorityConnection.containsKey(token._taskId)) {
             final byte[] bytes = SerializationUtils.serialize(remoteState);
-            Slave.getInstance().reportStateMigrationToMaster(bytes.length);
+            WorkerMetrics.getInstance().recordStateMigration(bytes.length);
             _originalTaskIdToPriorityConnection.get(token._taskId).send(token._taskId, bytes);
 //            sendMessageToMaster("Remote state is send back to the original elastic holder!");
             System.out.print("Remote state is send back to the original elastic holder!");
@@ -1249,7 +1251,8 @@ public class ElasticTaskHolder {
                 RemoteState remoteState = new RemoteState(taskid, partialState.getState(), targetRoute);
                 final byte[] bytes = SerializationUtils.serialize(remoteState);
                 _taskidRouteToConnection.get(taskid + "." + targetRoute).send(taskid, bytes);
-                Slave.getInstance().reportStateMigrationToMaster(bytes.length);
+//                Slave.getInstance().reportStateMigrationToMaster(bytes.length);
+                WorkerMetrics.getInstance().recordStateMigration(bytes.length);
 //                sendMessageToMaster("State has been sent to " + targetHost);
             } else {
 //                _slaveActor.sendMessageToMaster("State for the shard does not need to migrate, as the target subtask is run on the original host!");
@@ -1390,7 +1393,8 @@ public class ElasticTaskHolder {
 //        sendMessageToMaster("State contains " + migrationMessage.state.keySet().size() + " elements.");
 //        sendMessageToMaster("Serialization size: " + SerializationUtils.serialize(migrationMessage).length);
         final RemoteState remoteState = new RemoteState(-1, migrationMessage.state, -1);
-        Slave.getInstance().reportStateMigrationToMaster(SerializationUtils.serialize(remoteState).length);
+        WorkerMetrics.getInstance().recordStateMigration(SerializationUtils.serialize(remoteState).length);
+//        Slave.getInstance().reportStateMigrationToMaster(SerializationUtils.serialize(remoteState).length);
 //        _slaveActor.sendMessageToNode(targetHost, new TestAliveMessage("Before sending..."));
 //        Utils.sleep(10);
 //        migrationMessage.id = new Random().nextInt();
@@ -1752,11 +1756,11 @@ public class ElasticTaskHolder {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                    while(true) {
-                try {
+                while (true) {
+                    try {
                         Thread.sleep(1000);
 
-                        for(int remoteTaskId: _originalTaskIdToRemoteTaskExecutor.keySet()) {
+                        for (int remoteTaskId : _originalTaskIdToRemoteTaskExecutor.keySet()) {
                             ExecutionLatencyForRoutes latencyForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticTasks.getExecutionLatencyForRoutes();
                             ThroughputForRoutes throughputForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticTasks.getThroughputForRoutes();
                             MetricsForRoutesMessage message = new MetricsForRoutesMessage(remoteTaskId, latencyForRoutes, throughputForRoutes);
@@ -1765,7 +1769,7 @@ public class ElasticTaskHolder {
                             _originalTaskIdToPriorityConnection.get(remoteTaskId).send(remoteTaskId, SerializationUtils.serialize(message));
 //                            _sendingQueue.put(message);
                         }
-                        for(int taskId: _bolts.keySet()) {
+                        for (int taskId : _bolts.keySet()) {
                             ExecutionLatencyForRoutes latencyForRoutes = _bolts.get(taskId).get_elasticTasks().getExecutionLatencyForRoutes();
                             ThroughputForRoutes throughputForRoutes = _bolts.get(taskId).get_elasticTasks().getThroughputForRoutes();
                             _bolts.get(taskId).getMetrics().updateLatency(latencyForRoutes);
@@ -1777,7 +1781,7 @@ public class ElasticTaskHolder {
                             // get state size;
                             long stateSize = 0;
                             KeyValueState state = _bolts.get(taskId).get_elasticTasks().get_bolt().getState();
-                            if(state != null)
+                            if (state != null)
                                 stateSize = state.getStateSize();
 
                             // get data transfer rate
@@ -1786,13 +1790,18 @@ public class ElasticTaskHolder {
                             // emit the metric message to master.
                             _slaveActor.sendMessageObjectToMaster(new ElasticExecutorMetricsReportMessage(taskId, stateSize, dataTransferRate));
                         }
-                } catch (InterruptedException e) {
-                    System.out.println("Metrics report thread is terminated!");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    sendMessageToMaster(e.getMessage());
-                }
+
+                        _slaveActor.reportStateMigrationToMaster(WorkerMetrics.getInstance().getStateMigrationSizeAndReset());
+                        _slaveActor.reportIntraExecutorDataTransferToMaster(WorkerMetrics.getInstance().getDataTransferSizeAndReset());
+
+
+                    } catch (InterruptedException e) {
+                        System.out.println("Metrics report thread is terminated!");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        sendMessageToMaster(e.getMessage());
                     }
+                }
             }
         }).start();
 

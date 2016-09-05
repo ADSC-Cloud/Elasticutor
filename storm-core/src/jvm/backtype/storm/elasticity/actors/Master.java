@@ -323,6 +323,9 @@ public class Master extends UntypedActor implements MasterService.Iface {
         } else if (message instanceof StateMigrationReportMessage) {
             StateMigrationReportMessage reportMessage = (StateMigrationReportMessage) message;
             ElasticScheduler.getInstance().getMetaDataManager().reportStateMigration(reportMessage.stateSize);
+        } else if (message instanceof IntraExecutorDataTransferReportMessage) {
+            IntraExecutorDataTransferReportMessage dataTransferReportMessage = (IntraExecutorDataTransferReportMessage) message;
+            ElasticScheduler.getInstance().getMetaDataManager().reportIntraExecutorDataTransfer(dataTransferReportMessage.dataTransferSize);
         }
     }
 

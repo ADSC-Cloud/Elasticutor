@@ -47,7 +47,7 @@ public class ElasticScheduler {
 
     ElasticExecutorStatusManager elasticExecutorStatusManager = new ElasticExecutorStatusManager();
 
-    MetaDataManager metaDataManager = new MetaDataManager();
+    MetaDataManager metaDataManager;
 
     public ElasticScheduler(Map conf) {
 
@@ -74,7 +74,7 @@ public class ElasticScheduler {
 
 //        createScalingInAndOutTestingThread(17);
 
-
+        metaDataManager = new MetaDataManager();
 
 
     }
