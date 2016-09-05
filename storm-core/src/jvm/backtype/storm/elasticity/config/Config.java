@@ -43,6 +43,8 @@ public class Config {
         DisableDataIntensivenessInfo = readBoolean(conf, "elasticity.scheduler.DisableDataIntensivenessInfo", false);
 
         DisableStateSizeInfo = readBoolean(conf, "elasticity.scheduler.DisableStateSizeInfo", false);
+
+        EnableStateMigratedMetrics = readBoolean(conf, "elasticity.master.EnableStateMigratedMetrics", false);
     }
 
     static int readInteger(Map conf, String key, int defaultValue) {
@@ -126,5 +128,7 @@ public class Config {
     public static boolean DisableDataIntensivenessInfo = false;
 
     public static boolean DisableStateSizeInfo = false;
+
+    public static boolean EnableStateMigratedMetrics = false;
 
 }

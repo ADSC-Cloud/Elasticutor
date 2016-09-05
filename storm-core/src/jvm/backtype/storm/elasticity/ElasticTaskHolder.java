@@ -813,7 +813,9 @@ public class ElasticTaskHolder {
 
         remoteState.markAsFinalized();
         if(_originalTaskIdToPriorityConnection.containsKey(token._taskId)) {
-            _originalTaskIdToPriorityConnection.get(token._taskId).send(token._taskId,SerializationUtils.serialize(remoteState));
+            final byte[] bytes = SerializationUtils.serialize(remoteState);
+            Slave.getInstance().reportStateMigrationToMaster(bytes.length);
+            _originalTaskIdToPriorityConnection.get(token._taskId).send(token._taskId, bytes);
 //            sendMessageToMaster("Remote state is send back to the original elastic holder!");
             System.out.print("Remote state is send back to the original elastic holder!");
         } else {
@@ -1245,7 +1247,9 @@ public class ElasticTaskHolder {
                 }
 
                 RemoteState remoteState = new RemoteState(taskid, partialState.getState(), targetRoute);
-                _taskidRouteToConnection.get(taskid + "." + targetRoute).send(taskid, SerializationUtils.serialize(remoteState));
+                final byte[] bytes = SerializationUtils.serialize(remoteState);
+                _taskidRouteToConnection.get(taskid + "." + targetRoute).send(taskid, bytes);
+                Slave.getInstance().reportStateMigrationToMaster(bytes.length);
 //                sendMessageToMaster("State has been sent to " + targetHost);
             } else {
 //                _slaveActor.sendMessageToMaster("State for the shard does not need to migrate, as the target subtask is run on the original host!");
@@ -1385,6 +1389,8 @@ public class ElasticTaskHolder {
         System.out.println("Sending the ElasticTaskMigrationMessage to " + targetHost);
 //        sendMessageToMaster("State contains " + migrationMessage.state.keySet().size() + " elements.");
 //        sendMessageToMaster("Serialization size: " + SerializationUtils.serialize(migrationMessage).length);
+        final RemoteState remoteState = new RemoteState(-1, migrationMessage.state, -1);
+        Slave.getInstance().reportStateMigrationToMaster(SerializationUtils.serialize(remoteState).length);
 //        _slaveActor.sendMessageToNode(targetHost, new TestAliveMessage("Before sending..."));
 //        Utils.sleep(10);
 //        migrationMessage.id = new Random().nextInt();

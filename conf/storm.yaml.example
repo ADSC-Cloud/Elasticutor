@@ -62,4 +62,5 @@
 
 # elasticity.scheduler.DisableDataIntensivenessInfo: 1
 # elasticity.scheduler.DisableStateSizeInfo: 1
+# elasticity.master.EnableStateMigratedMetrics: 1
 

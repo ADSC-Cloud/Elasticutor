@@ -320,6 +320,9 @@ public class Master extends UntypedActor implements MasterService.Iface {
         } else if (message instanceof DesirableParallelismMessage) {
             DesirableParallelismMessage desirableParallelismMessage = (DesirableParallelismMessage) message;
             ElasticScheduler.getInstance().getElasticExecutorStatusManager().updateDesirableParallelism(desirableParallelismMessage.taskID, desirableParallelismMessage.desriableParallelism);
+        } else if (message instanceof StateMigrationReportMessage) {
+            StateMigrationReportMessage reportMessage = (StateMigrationReportMessage) message;
+            ElasticScheduler.getInstance().getMetaDataManager().reportStateMigration(reportMessage.stateSize);
         }
     }
 

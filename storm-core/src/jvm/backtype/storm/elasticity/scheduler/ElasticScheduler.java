@@ -47,6 +47,8 @@ public class ElasticScheduler {
 
     ElasticExecutorStatusManager elasticExecutorStatusManager = new ElasticExecutorStatusManager();
 
+    MetaDataManager metaDataManager = new MetaDataManager();
+
     public ElasticScheduler(Map conf) {
 
 
@@ -734,5 +736,8 @@ public class ElasticScheduler {
         }).start();
     }
 
+    public MetaDataManager getMetaDataManager() {
+        return metaDataManager;
+    }
 
 }
