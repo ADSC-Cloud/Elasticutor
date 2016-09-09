@@ -147,7 +147,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
 //        createAutomaticScalingThread();
 
-//        createLoadBalancingThread();
+        createLoadBalancingThread();
 //        createSeedUpdatingThread();
     }
 

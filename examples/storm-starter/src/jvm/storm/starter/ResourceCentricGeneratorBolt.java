@@ -40,7 +40,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     private int taskIndex;
     int _prime;
 
-    final boolean enableMannualACK = false;
+    final boolean enableMannualACK = true;
 
     final private int puncutationGenrationFrequency = 400;
     final private int numberOfPendingTuple = 2000;
@@ -62,7 +62,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         @Override
         public void run() {
             while (true) {
-                Utils.sleep(15000);
+                Utils.sleep(30000);
                 Random rand = new Random(1);
                 System.out.println("distribution has been changed");
                 _prime = primes[rand.nextInt(primes.length)];
