@@ -92,7 +92,7 @@ public class RateTracker implements Serializable{
     }
 
     synchronized double reportRate(long currentTime) {
-        long duration = Math.max(1l, currentTime - _bucketStart.get());
+        long duration = Math.max(1L, currentTime - _bucketStart.get());
         long events = _currentBucket.get();
         for (int i = 0; i < _oldBuckets.length; i++) {
             events += _oldBuckets[i];
