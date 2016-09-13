@@ -51,6 +51,10 @@ public class FrequencyRestrictor {
         this(maxFrequencyPerSecond, 50);
     }
 
+    public void getPermission() throws InterruptedException{
+        getPermission(1);
+    }
+
     public void getPermission(int numberOfEvents) throws InterruptedException {
         semaphore.acquire(numberOfEvents);
     }
@@ -66,7 +70,7 @@ public class FrequencyRestrictor {
     public static void main(String[] args) {
         System.out.println(ManagementFactory.getRuntimeMXBean().getName());
         final FrequencyRestrictor frequencyRestrictor = new FrequencyRestrictor(1000000,50);
-        final RateTracker rateTracker = new RateTracker(1000,10);
+        final RateTracker rateTracker = new RateTracker(5000,10);
 
 //        Timer timer = new Timer("aa",true);
 //        timer.scheduleAtFixedRate(new TimerTask() {

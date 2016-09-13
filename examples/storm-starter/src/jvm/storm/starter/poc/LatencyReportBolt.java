@@ -37,6 +37,7 @@ public class LatencyReportBolt extends BaseRichBolt {
                 while(true) {
                     Utils.sleep(1000);
                     synchronized (latencyHistory) {
+
                         if(latencyHistory.size() == 0) {
                             Slave.getInstance().sendMessageToMaster("Processing Latency: " + 0);
                         } else {
@@ -44,7 +45,18 @@ public class LatencyReportBolt extends BaseRichBolt {
                             for(long l: latencyHistory) {
                                 sum += l;
                             }
-                            Slave.getInstance().sendMessageToMaster(String.format("Processing Latency: %.2f", sum / (double)latencyHistory.size()));
+
+                            double avg = sum / latencyHistory.size();
+
+                            double dev = 0;
+                            for(long l: latencyHistory) {
+                                dev += Math.pow((l - avg), 2);
+                            }
+
+                            double standardDev = Math.sqrt(dev);
+
+
+                            Slave.getInstance().sendMessageToMaster(String.format("Processing Latency: %.2f, standard dev: %.2f", avg, standardDev));
                             latencyHistory.clear();
                         }
                     }
