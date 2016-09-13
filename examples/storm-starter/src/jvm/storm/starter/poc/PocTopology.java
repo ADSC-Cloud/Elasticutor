@@ -30,6 +30,7 @@ public class PocTopology {
     public static String TransactionBolt = "TransactionBolt";
     public static String StatisticsBolt = "StatisticsBolt";
     public static String LatencyReportBolt = "LatencyReportBolt";
+    public static String ForwardBolt = "ForwardBolt";
 
     public static void main(String[] args) {
 

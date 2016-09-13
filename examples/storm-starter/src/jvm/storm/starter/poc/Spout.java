@@ -71,8 +71,6 @@ public class Spout extends BaseRichSpout {
                 collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime), new Object());
             }
 
-
-
         } catch (Exception e) {
             e.printStackTrace();
         }
