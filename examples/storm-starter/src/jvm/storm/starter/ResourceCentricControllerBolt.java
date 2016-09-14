@@ -253,7 +253,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
                 try {
                     ResourceCentricControllerService.Processor processor = new ResourceCentricControllerService.Processor(bolt);
 //                    MasterService.Processor processor = new MasterService.Processor(_instance);
-                    TServerTransport serverTransport = new TServerSocket(19090);
+                    TServerTransport serverTransport = new TServerSocket(29090);
                     TServer server = new TThreadPoolServer(new TThreadPoolServer.Args(serverTransport).processor(processor));
 
                     Slave.getInstance().logOnMaster("Controller daemon is started on " + InetAddress.getLocalHost().getHostAddress());
@@ -294,6 +294,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
             int sourceTaskId = downstreamTaskIds.get(sourceTaskIndex);
 
             sourceTaskIdToPendingTupleCleanedSemphore.put(sourceTaskIndex, new Semaphore(0));
+            sourceTaskIndexToResumingWaitingSemphore.put(sourceTaskIndex, new Semaphore(0));
 
             Slave.getInstance().logOnMaster(String.format("Controller: sending pausing"));
 
@@ -307,7 +308,6 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
             Slave.getInstance().logOnMaster(String.format("Shard reassignment of shard %d from %d to %d is ready!", shardId, sourceTaskId, targetTaskIndex));
 
-            sourceTaskIndexToResumingWaitingSemphore.put(sourceTaskIndex, new Semaphore(0));
             collector.emit(ResourceCentricZipfComputationTopology.UpstreamCommand, new Values("resuming", sourceTaskIndex, targetTaskIndex, shardId));
             sourceTaskIndexToResumingWaitingSemphore.get(sourceTaskIndex).acquire();
 

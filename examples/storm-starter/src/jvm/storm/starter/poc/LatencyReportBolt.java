@@ -35,7 +35,7 @@ public class LatencyReportBolt extends BaseRichBolt {
             @Override
             public void run() {
                 while(true) {
-                    Utils.sleep(1000);
+                    Utils.sleep(10000);
                     synchronized (latencyHistory) {
 
                         if(latencyHistory.size() == 0) {

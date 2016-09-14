@@ -51,8 +51,9 @@ public class PocTopology {
 
         builder.setSpout(Spout, new Spout(args[1]), Integer.parseInt(args[2]));
         builder.setBolt(ForwardBolt, new ForwardBolt(), Integer.parseInt(args[2]))
-                .shuffleGrouping(Spout)
-                .directGrouping(ControllerBolt, UPSTREAM_COMMAND_STREAM);
+                .shuffleGrouping(Spout, SELLER_STREAM)
+                .shuffleGrouping(Spout, BUYER_STREAM)
+                .allGrouping(ControllerBolt, UPSTREAM_COMMAND_STREAM);
         builder.setBolt(ControllerBolt, new ControllerBolt(),1)
                 .allGrouping(TransactionBolt, STATE_MIGRATION_STREAM)
                 .allGrouping(ForwardBolt, FEEDBACK_STREAM)

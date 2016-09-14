@@ -83,7 +83,11 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
     }
     @Override
     public Serializable getKey(Tuple tuple) {
-        return tuple.getIntegerByField(PocTopology.SEC_CODE);
+        try {
+            return tuple.getIntegerByField(PocTopology.SEC_CODE);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     @Override
@@ -92,6 +96,8 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
         final String streamId = input.getSourceStreamId();
 
         if(streamId.equals(PocTopology.BUYER_STREAM)) {
+
+            System.out.println("get a buyer tuple.");
 
             State state = (State)getValueByKey(getKey(input));
             if(state == null) {
@@ -140,8 +146,10 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
             collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
             collector.ack(input);
+            System.out.println("processed a buyer tuple.");
 
         } else if (streamId.equals(PocTopology.SELLER_STREAM)){
+            System.out.println("get a seller tuple.");
             State state = (State)getValueByKey(getKey(input));
             if(state == null) {
                 state = new State();
@@ -189,9 +197,11 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
             collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
             collector.ack(input);
+            System.out.println("processed a seller tuple.");
         } else if (streamId.equals(PocTopology.STATE_MIGRATION_COMMAND_STREAM)) {
             receivedMigrationCommand++;
-            if(receivedMigrationCommand==upstreamTaskIds.size()) {
+            System.out.println("receivedMigrationCommand: " + receivedMigrationCommand);
+            if(receivedMigrationCommand == upstreamTaskIds.size()) {
                 int sourceTaskOffset = input.getInteger(0);
                 int targetTaskOffset = input.getInteger(1);
                 int shardId = input.getInteger(2);
@@ -204,13 +214,16 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
 //                state.getState().put("key", new byte[1024 * 32]);
 
                 Slave.getInstance().logOnMaster("State migration starts!");
+                System.out.println("State migration starts!");
                 collector.emit(PocTopology.STATE_MIGRATION_STREAM, new Values(sourceTaskOffset, targetTaskOffset, shardId, state));
             }
         } else if (streamId.equals(PocTopology.STATE_UPDATE_STREAM)) {
+            System.out.println("Received state update stream!");
             int targetTaskOffset = input.getInteger(0);
             KeyValueState state = (KeyValueState) input.getValue(1);
             getState().update(state);
             Slave.getInstance().logOnMaster("State is updated!");
+            System.out.println("State is updated!");
             collector.emit(PocTopology.STATE_READY_STREAM, input, new Values(targetTaskOffset));
 
         }
@@ -229,5 +242,8 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
     @Override
     public void prepare(Map stormConf, TopologyContext context) {
         declareStatefulOperator();
+        upstreamTaskIds = context.getComponentTasks(PocTopology.ForwardBolt);
+        taskId = context.getThisTaskId();
+        receivedMigrationCommand = 0;
     }
 }

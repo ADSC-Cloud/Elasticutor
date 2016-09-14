@@ -58,11 +58,13 @@ public class ForwardBolt extends BaseRichBolt {
                     }
                     if(tuple == null)
                         continue;
+                    System.out.println("A tuple is polled from the queue!");
                     final String sourceStream = tuple.getSourceStreamId();
                     final int secCode = tuple.getIntegerByField(PocTopology.SEC_CODE);
                     final int targetTaskIndex = routingTable.route(secCode);
                     final int targetTaskId = downStreamTaskIds.get(targetTaskIndex);
                     collector.emitDirect(targetTaskId, sourceStream, tuple.getValues());
+                    System.out.println("A tuple is forwarded!");
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -104,7 +106,12 @@ public class ForwardBolt extends BaseRichBolt {
 //            final int targetTaskIndex = routingTable.route(secCode);
 //            final int targetTaskId = downStreamTaskIds.get(targetTaskIndex);
 //            collector.emitDirect(targetTaskId, sourceStream, input.getValues());
-            tuples.add(input);
+            try {
+                tuples.put(input);
+                System.out.println("A tuple is added to the queue!");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         } else if(sourceStream.equals(PocTopology.UPSTREAM_COMMAND_STREAM)) {
             final String command = input.getString(0);
             if(command.equals("getHistograms")) {
@@ -123,6 +130,7 @@ public class ForwardBolt extends BaseRichBolt {
                 int sourceTaskIndex = input.getInteger(1);
                 emitter = new Emitter();
                 new Thread(emitter).start();
+                System.out.println("resumed!");
                 collector.emit(PocTopology.FEEDBACK_STREAM, new Values("resumed", sourceTaskIndex));
             }
         }

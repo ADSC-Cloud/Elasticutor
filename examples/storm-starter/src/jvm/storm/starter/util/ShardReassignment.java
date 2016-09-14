@@ -18,7 +18,7 @@ public class ShardReassignment {
 
 
         try {
-            TTransport transport = new TSocket(args[0],19090);
+            TTransport transport = new TSocket(args[0],29090);
             transport.open();
 
             TProtocol protocol = new TBinaryProtocol(transport);
