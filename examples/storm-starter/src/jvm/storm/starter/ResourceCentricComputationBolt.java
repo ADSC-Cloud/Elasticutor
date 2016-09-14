@@ -26,14 +26,14 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 
     List<Integer> upstreamTaskIds;
 
-    ConcurrentLinkedQueue<Long> latencyHistory;
-
-    transient RateTracker rateTracker;
+    private int taskId;
 
     int receivedMigrationCommand;
 
+    ConcurrentLinkedQueue<Long> latencyHistory;
+
+    transient RateTracker rateTracker;
     transient ElasticOutputCollector outputCollector;
-    private int taskId;
 
     public ResourceCentricComputationBolt(int sleepTimeInSecs) {
         this.sleepTimeInMilics = sleepTimeInSecs;

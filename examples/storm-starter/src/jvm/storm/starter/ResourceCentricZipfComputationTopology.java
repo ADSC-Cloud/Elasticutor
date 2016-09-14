@@ -9,26 +9,25 @@ import backtype.storm.tuple.Fields;
  * Created by acelzj on 03/05/16.
  */
 public class ResourceCentricZipfComputationTopology {
-    public static String StateMigrationCommandStream = "StateMigrationCommand";
-    public static String StateMigrationStream = "StateMigration";
-    public static String StateUpdateStream = "StateUpdate";
-    public static String StateReadyStream = "SteateReady";
-    public static String FeedbackStream = "FeedbackStream";
-    public static String RateAndLatencyReportStream = "LatencyAndRateReport";
-    public static String SeedUpdateStream = "SeedUpdateStream";
-    public static String CountReportSteram = "CountReportStream";
-    public static String CountPermissionStream = "CountPermissionStream";
+    static String StateMigrationCommandStream = "StateMigrationCommand";
+    static String StateMigrationStream = "StateMigration";
+    static String StateUpdateStream = "StateUpdate";
+    static String StateReadyStream = "SteateReady";
+    static String FeedbackStream = "FeedbackStream";
+    static String RateAndLatencyReportStream = "LatencyAndRateReport";
+    static String SeedUpdateStream = "SeedUpdateStream";
+    static String CountReportSteram = "CountReportStream";
+    static String CountPermissionStream = "CountPermissionStream";
 
     static String PuncutationEmitStream = "PunctuationEmitStream";
     static String PuncutationFeedbackStreawm = "PunctuationFeedbackStream";
 
 
-    public static String UpstreamCommand = "UpstreamCommand";
-
-    public static String Spout = "spout";
-    public static String GeneratorBolt = "generator";
-    public static String ComputationBolt = "computation";
-    public static String Controller = "controller";
+    static String UpstreamCommand = "UpstreamCommand";
+    static String Spout = "spout";
+    static String GeneratorBolt = "generator";
+    static String ComputationBolt = "computation";
+    static String Controller = "controller";
 
     public static void main(String[] args) throws Exception {
 

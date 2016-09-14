@@ -3,6 +3,7 @@ package storm.starter.poc;
 import backtype.storm.elasticity.BaseElasticBolt;
 import backtype.storm.elasticity.ElasticOutputCollector;
 import backtype.storm.elasticity.actors.Slave;
+import backtype.storm.elasticity.state.KeyValueState;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Fields;
@@ -17,6 +18,12 @@ import java.util.*;
  * Created by robert on 25/5/16.
  */
 public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
+
+    List<Integer> upstreamTaskIds;
+
+    private int taskId;
+
+    int receivedMigrationCommand;
 
     public static class State implements Serializable{
 
@@ -82,33 +89,34 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
     @Override
     public void execute(Tuple input, ElasticOutputCollector collector) {
 
-        State state = (State)getValueByKey(getKey(input));
-        if(state == null) {
-            state = new State();
-            setValueByKey(getKey(input), state);
-        }
+        final String streamId = input.getSourceStreamId();
+
+        if(streamId.equals(PocTopology.BUYER_STREAM)) {
+
+            State state = (State)getValueByKey(getKey(input));
+            if(state == null) {
+                state = new State();
+                setValueByKey(getKey(input), state);
+            }
 
 
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd HH:mm:ss.SSS");
-        Date date = null;
-        try {
-            date = format.parse(String.format("%s %s.%d", input.getStringByField(PocTopology.DATE), input.getStringByField(PocTopology.TIME), (int)(1000 * Double.parseDouble(input.getStringByField(PocTopology.MILLISECOND)))));
-        } catch (Exception e) {
-            e.printStackTrace();
-            Slave.getInstance().sendMessageToMaster(e.getMessage());
-            return;
-        }
+            SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd HH:mm:ss.SSS");
+            Date date = null;
+            try {
+                date = format.parse(String.format("%s %s.%d", input.getStringByField(PocTopology.DATE), input.getStringByField(PocTopology.TIME), (int)(1000 * Double.parseDouble(input.getStringByField(PocTopology.MILLISECOND)))));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Slave.getInstance().sendMessageToMaster(e.getMessage());
+                return;
+            }
 
-        Record newRecord = new Record(
-                input.getLongByField(PocTopology.ORDER_NO),
-                input.getStringByField(PocTopology.ACCT_ID),
-                input.getDoubleByField(PocTopology.PRICE),
-                input.getIntegerByField(PocTopology.VOLUME),
-                input.getIntegerByField(PocTopology.SEC_CODE),
-                date);
-
-        if(input.getSourceStreamId().equals(PocTopology.BUYER_STREAM)) {
-
+            Record newRecord = new Record(
+                    input.getLongByField(PocTopology.ORDER_NO),
+                    input.getStringByField(PocTopology.ACCT_ID),
+                    input.getDoubleByField(PocTopology.PRICE),
+                    input.getIntegerByField(PocTopology.VOLUME),
+                    input.getIntegerByField(PocTopology.SEC_CODE),
+                    date);
             List<Record> sells = state.getSells();
 
             for(Record sell: sells) {
@@ -129,8 +137,35 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             if(newRecord.volume > 0) {
                 state.insertBuy(newRecord);
             }
+            long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
+            collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            collector.ack(input);
 
-        } else {
+        } else if (streamId.equals(PocTopology.SELLER_STREAM)){
+            State state = (State)getValueByKey(getKey(input));
+            if(state == null) {
+                state = new State();
+                setValueByKey(getKey(input), state);
+            }
+
+
+            SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd HH:mm:ss.SSS");
+            Date date = null;
+            try {
+                date = format.parse(String.format("%s %s.%d", input.getStringByField(PocTopology.DATE), input.getStringByField(PocTopology.TIME), (int)(1000 * Double.parseDouble(input.getStringByField(PocTopology.MILLISECOND)))));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Slave.getInstance().sendMessageToMaster(e.getMessage());
+                return;
+            }
+
+            Record newRecord = new Record(
+                    input.getLongByField(PocTopology.ORDER_NO),
+                    input.getStringByField(PocTopology.ACCT_ID),
+                    input.getDoubleByField(PocTopology.PRICE),
+                    input.getIntegerByField(PocTopology.VOLUME),
+                    input.getIntegerByField(PocTopology.SEC_CODE),
+                    date);
             List<Record> buys = state.getBuys();
 
             for(Record buy: buys) {
@@ -151,10 +186,35 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             if(newRecord.volume > 0) {
                 state.insertSell(newRecord);
             }
+            long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
+            collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            collector.ack(input);
+        } else if (streamId.equals(PocTopology.STATE_MIGRATION_COMMAND_STREAM)) {
+            receivedMigrationCommand++;
+            if(receivedMigrationCommand==upstreamTaskIds.size()) {
+                int sourceTaskOffset = input.getInteger(0);
+                int targetTaskOffset = input.getInteger(1);
+                int shardId = input.getInteger(2);
+//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", taskId, shardId, sourceTaskOffset, targetTaskOffset));
+
+                // received the migration command from each of the upstream tasks.
+                receivedMigrationCommand = 0;
+                KeyValueState state = getState();
+
+//                state.getState().put("key", new byte[1024 * 32]);
+
+                Slave.getInstance().logOnMaster("State migration starts!");
+                collector.emit(PocTopology.STATE_MIGRATION_STREAM, new Values(sourceTaskOffset, targetTaskOffset, shardId, state));
+            }
+        } else if (streamId.equals(PocTopology.STATE_UPDATE_STREAM)) {
+            int targetTaskOffset = input.getInteger(0);
+            KeyValueState state = (KeyValueState) input.getValue(1);
+            getState().update(state);
+            Slave.getInstance().logOnMaster("State is updated!");
+            collector.emit(PocTopology.STATE_READY_STREAM, input, new Values(targetTaskOffset));
+
         }
-        long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
-        collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
-        collector.ack(input);
+
 
     }
 
@@ -162,7 +222,8 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declareStream(PocTopology.TRANSACTION_STREAM, new Fields(PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME));
         declarer.declareStream(PocTopology.LATENCY_REPORT_STREAM, new Fields(PocTopology.EMIT_TIME_STAMP));
-
+        declarer.declareStream(PocTopology.STATE_MIGRATION_STREAM, new Fields("sourceTaskId", "targetTaskId", "shardId", "state"));
+        declarer.declareStream(PocTopology.STATE_READY_STREAM, new Fields("targetTaskId"));
     }
 
     @Override
