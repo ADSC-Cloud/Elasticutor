@@ -64,6 +64,7 @@ public class ForwardBolt extends BaseRichBolt {
                     final int targetTaskIndex = routingTable.route(secCode);
                     final int targetTaskId = downStreamTaskIds.get(targetTaskIndex);
                     collector.emitDirect(targetTaskId, sourceStream, tuple.getValues());
+                    collector.ack(tuple);
                     System.out.println("A tuple is forwarded!");
                 }
             } catch (InterruptedException e) {
