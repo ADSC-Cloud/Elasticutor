@@ -141,8 +141,10 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             if(newRecord.volume > 0) {
                 state.insertBuy(newRecord);
             }
-            long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
-            collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            if(new Random().nextDouble()<0.1) {
+                long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
+                collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            }
             collector.ack(input);
 
         } else if (streamId.equals(PocTopology.SELLER_STREAM)){
@@ -190,8 +192,10 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             if(newRecord.volume > 0) {
                 state.insertSell(newRecord);
             }
-            long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
-            collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            if(new Random().nextDouble()<0.1) {
+                long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
+                collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
+            }
             collector.ack(input);
         } else if (streamId.equals(PocTopology.STATE_MIGRATION_COMMAND_STREAM)) {
             receivedMigrationCommand++;
