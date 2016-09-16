@@ -67,8 +67,10 @@ public class Spout extends BaseRichSpout {
             String direction = values[22];
             if(direction.equals("S")) {
                 collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime), new Object());
+//                collector.emit(PocTopology.SELLER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime));
             } else {
                 collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime), new Object());
+//                collector.emit(PocTopology.BUYER_STREAM,new Values(orderNo, acct_id, secCode, price, volume, time1, time2, time3, currentTime));
             }
 
         } catch (Exception e) {

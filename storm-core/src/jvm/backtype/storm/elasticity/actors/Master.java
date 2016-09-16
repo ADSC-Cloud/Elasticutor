@@ -631,7 +631,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             throw new TaskNotExistException("task " + taskid + " does not exist!");
         final double ret;
         try {
-            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
+            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 3, TimeUnit.SECONDS);
 //            ret = (double)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
             return ret;
         } catch (Exception e) {

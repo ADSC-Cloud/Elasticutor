@@ -52,6 +52,7 @@ public class LocalityAndMigrationCostAwareScheduling {
 
             if(executor.getDataIntensiveness() >= dataIntensivenessThreshold) {
                 // data-intensive executor only accepts CPU cores on the host node.
+                System.out.println("Scheduling for a data-intensive executor");
                 final String hostIp = executor.getHostIp();
                 while(executor.getDesirableParallelism() > executor.getCurrentParallelism()) {
                     double overhead = Double.MAX_VALUE;

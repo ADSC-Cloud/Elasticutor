@@ -14,7 +14,7 @@ public class SlidingWindowRouteSampler {
 
     private boolean enabled = false;
 
-    static private int sampleLength = 5000;
+    static private int sampleLength = 1000;
 
     static private int numberOfSlides = 5;
 

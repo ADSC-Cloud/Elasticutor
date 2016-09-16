@@ -152,6 +152,7 @@ public class ElasticTaskHolder {
         resourceMonitor = new ResourceMonitor();
         createMetricsReportThread();
         createParallelismPredicationThread();
+        System.out.println(String.format("Sending Queue (%d)", _sendingQueue.hashCode()));
     }
 
     public void registerElasticBolt(BaseElasticBoltExecutor bolt, int taskId) {
@@ -328,6 +329,7 @@ public class ElasticTaskHolder {
             @Override
             public void run() {
                 while (true) {
+                    Object object = null;
                     try {
 //                        System.out.println("fetching...");
 
@@ -335,7 +337,8 @@ public class ElasticTaskHolder {
                         Map<String, IConnection> connectionNameToIConnection = new HashMap<>();
 
                         ArrayList<ITaskMessage> drainer = new ArrayList<>();
-                        ITaskMessage firstMessage = _sendingQueue.take();
+                        object = _sendingQueue.take();
+                        ITaskMessage firstMessage = (ITaskMessage) object;
                         drainer.add(firstMessage);
 //                        _sendingQueue.drainTo(drainer, 2048);
                         _sendingQueue.drainTo(drainer);
@@ -473,7 +476,14 @@ public class ElasticTaskHolder {
                     } catch (SerializationException ex) {
                         System.err.println("Serialization Error!");
                         ex.printStackTrace();
-                    } catch (Exception eee) {
+                    } catch (ClassCastException e) {
+                        e.printStackTrace();
+                        System.out.println("Class case exception happens!");
+                        System.out.println(String.format("Message: %s", object.toString()));
+                        sendMessageToMaster("Class case exception happens!");
+                        System.exit(1024);
+                    }
+                     catch (Exception eee) {
                         eee.printStackTrace();
                     }
                 }
@@ -636,9 +646,15 @@ public class ElasticTaskHolder {
 //                            System.out.println("Received a strange task with taskId + " + message.task());
                             int taskid = message.task() - 10000;
                             Tuple remoteTuple = tupleDeserializer.deserialize(message.message());
-                            ElasticRemoteTaskExecutor elasticRemoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(taskid);
-                            LinkedBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
-                            queue.put(remoteTuple);
+                            try {
+                                ElasticRemoteTaskExecutor elasticRemoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(taskid);
+                                LinkedBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
+                                queue.put(remoteTuple);
+                            } catch (NullPointerException e) {
+                                System.out.println(String.format("TaskId: %d, ", taskid));
+                                e.printStackTrace();
+                            }
+
                         } else {
                         Object object = SerializationUtils.deserialize(message.message());
 //                        System.out.println(String.format("Received %s!", object));
@@ -1532,7 +1548,7 @@ public class ElasticTaskHolder {
          */
 
         try {
-            System.out.println("begin to handle scaling in subtask command...");
+            System.out.println("begin to handle scaling in subtask command for TaskID" + taskId);
             SmartTimer.getInstance().start("Scaling In Subtask", "prepare");
             if(!_bolts.containsKey(taskId)) {
                 throw new TaskNotExistingException(taskId);
@@ -1547,6 +1563,7 @@ public class ElasticTaskHolder {
 
             int targetSubtaskId = balancedHashRouting.getNumberOfRoutes() -1;
             int numberOfSubtasks = balancedHashRouting.getNumberOfRoutes();
+            System.out.println(String.format("Scaling: %d --> %d", numberOfSubtasks, numberOfSubtasks - 1));
             // collect the necessary metrics first.
             System.out.println("begin to collect the metrics...");
             Histograms histograms = balancedHashRouting.getBucketsDistribution();
@@ -1820,7 +1837,7 @@ public class ElasticTaskHolder {
                             int desirableParallelism = _bolts.get(taskId).getDesirableParallelism();
 //                            sendMessageToMaster("Task: " + taskId + " average latency: " + _bolts.get(taskId).getMetrics().getAverageLatency());
 //                            sendMessageToMaster("Task: " + taskId + " rate: " + _bolts.get(taskId).getInputRate());
-//                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" + desirableParallelism);
+                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" + desirableParallelism);
                             if(currentParallelism < desirableParallelism) {
                                 ExecutorScalingOutRequestMessage requestMessage = new ExecutorScalingOutRequestMessage(taskId);
                                 _slaveActor.sendMessageObjectToMaster(requestMessage);

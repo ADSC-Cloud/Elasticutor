@@ -24,6 +24,7 @@ public class ElasticExecutorInfo {
         this.dataIntensivenessFactor = dataIntensivenessFactor;
         allocatedCores = new ArrayList<>();
         allocatedCores.add(hostIp);
+        desirableParallelism = 1;
 
     }
 

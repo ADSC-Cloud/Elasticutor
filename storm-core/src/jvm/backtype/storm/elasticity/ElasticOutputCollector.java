@@ -84,4 +84,8 @@ public class ElasticOutputCollector {
             e.printStackTrace();
         }
     }
+
+    public String toString() {
+        return String.format("ElasticOutputCollector (%d)", _outputQueue.hashCode());
+    }
 }

@@ -25,6 +25,7 @@ public class TupleExecuteResult implements Serializable{
 
     transient public int _commandType;
 
+
     public TupleExecuteResult(int taskId, String streamId, Tuple inputTuple, List<Object> outputTuple, int command) {
         _taskId = taskId;
         _streamId = streamId;
@@ -47,5 +48,8 @@ public class TupleExecuteResult implements Serializable{
         return new TupleExecuteResult(-1, null, tuple, null, Ack);
     }
 
+    public String toString() {
+        return String.format("TupleExecuteResult: TaskID: %d, StreamID: %s, CommandType: %d, inputTuple: %s, outputTuple: %s", _taskId, _streamId, _commandType, _inputTuple, _outputTuple);
+    }
 
 }

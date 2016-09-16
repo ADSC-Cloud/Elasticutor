@@ -97,8 +97,6 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
 
         if(streamId.equals(PocTopology.BUYER_STREAM)) {
 
-            System.out.println("get a buyer tuple.");
-
             State state = (State)getValueByKey(getKey(input));
             if(state == null) {
                 state = new State();
@@ -146,10 +144,8 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
             collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
             collector.ack(input);
-            System.out.println("processed a buyer tuple.");
 
         } else if (streamId.equals(PocTopology.SELLER_STREAM)){
-            System.out.println("get a seller tuple.");
             State state = (State)getValueByKey(getKey(input));
             if(state == null) {
                 state = new State();
@@ -197,7 +193,6 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
             long startTime = input.getLongByField(PocTopology.EMIT_TIME_STAMP);
             collector.emit(PocTopology.LATENCY_REPORT_STREAM, new Values(System.currentTimeMillis() - startTime));
             collector.ack(input);
-            System.out.println("processed a seller tuple.");
         } else if (streamId.equals(PocTopology.STATE_MIGRATION_COMMAND_STREAM)) {
             receivedMigrationCommand++;
             System.out.println("receivedMigrationCommand: " + receivedMigrationCommand);

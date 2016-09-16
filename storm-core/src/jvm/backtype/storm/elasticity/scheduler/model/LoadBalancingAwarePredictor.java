@@ -30,7 +30,7 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
 
         if(inputRate * overProvisionForAGivenDoP > maxProcessingThroughput) {
             Slave.getInstance().sendMessageToMaster("the performance is bounded by the load balancing.");
-            desirableDoP = currentDop - 1;
+            desirableDoP = currentDop;
         } else {
 
             Double performanceFactor = ElasticScheduler.getPerformanceFactor(routeLoads);

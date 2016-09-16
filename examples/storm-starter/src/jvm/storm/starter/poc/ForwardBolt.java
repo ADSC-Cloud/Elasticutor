@@ -58,14 +58,12 @@ public class ForwardBolt extends BaseRichBolt {
                     }
                     if(tuple == null)
                         continue;
-                    System.out.println("A tuple is polled from the queue!");
                     final String sourceStream = tuple.getSourceStreamId();
                     final int secCode = tuple.getIntegerByField(PocTopology.SEC_CODE);
                     final int targetTaskIndex = routingTable.route(secCode);
                     final int targetTaskId = downStreamTaskIds.get(targetTaskIndex);
                     collector.emitDirect(targetTaskId, sourceStream, tuple.getValues());
                     collector.ack(tuple);
-                    System.out.println("A tuple is forwarded!");
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -109,7 +107,6 @@ public class ForwardBolt extends BaseRichBolt {
 //            collector.emitDirect(targetTaskId, sourceStream, input.getValues());
             try {
                 tuples.put(input);
-                System.out.println("A tuple is added to the queue!");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

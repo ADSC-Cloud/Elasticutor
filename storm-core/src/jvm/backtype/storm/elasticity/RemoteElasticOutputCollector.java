@@ -1,5 +1,6 @@
 package backtype.storm.elasticity;
 
+import akka.remote.Ack;
 import backtype.storm.elasticity.message.taksmessage.RemoteTupleExecuteResult;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.Utils;
@@ -51,6 +52,15 @@ public class RemoteElasticOutputCollector extends ElasticOutputCollector {
         return null;
     }
 
+    public List<Integer> emit(String streamId, List<Object> tuple) {
+        try {
+            _outputQueue.put(new RemoteTupleExecuteResult(_originalTaskId, 0, streamId, null, tuple, RemoteTupleExecuteResult.Emit));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     @Override
     public void emitDirect(int taskId, String streamId, List<Object> tuple) {
         assert(false);
@@ -59,6 +69,19 @@ public class RemoteElasticOutputCollector extends ElasticOutputCollector {
     @Override
     public void reportError(Throwable error) {
 
+    }
+
+    public void ack(Tuple tuple) {
+        try {
+//            TupleExecuteResult(-1, null, tuple, null, Ack)
+            _outputQueue.put(new RemoteTupleExecuteResult(_originalTaskId, -1, null, tuple, null, RemoteTupleExecuteResult.Ack ));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String toString() {
+        return String.format("RemoteElasticOutputCollector (%d)", _outputQueue.hashCode());
     }
 
 }

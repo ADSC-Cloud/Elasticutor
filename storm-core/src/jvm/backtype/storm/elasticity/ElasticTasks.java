@@ -265,7 +265,8 @@ public class ElasticTasks implements Serializable {
         Thread newThread = new Thread(query);
         newThread.start();
         _queryThreads.put(i, newThread);
-        System.out.println("created elastic worker threads for route "+i);
+//        System.out.println("created elastic worker threads for route "+i);
+        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
 //        ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route "+i);
         ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
     }
@@ -283,7 +284,8 @@ public class ElasticTasks implements Serializable {
         Thread newThread = new Thread(query);
         newThread.start();
         _queryThreads.put(i, newThread);
-        System.out.println("created elastic worker threads for route "+i);
+        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
+//        System.out.println("created elastic worker threads for route "+i);
         ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
     }
 

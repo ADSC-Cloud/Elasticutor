@@ -306,6 +306,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             Long averageLatency = getMetrics().getRecentAverageLatency(3000);
             if (averageLatency == null) {
                 System.out.println("averageLatency is null!");
+                Slave.getInstance().sendMessageToMaster(String.format("latency metrics is null in Task %d", _taskId));
                 return 1;
             }
             double processingRatePerProcessor = 1 / (averageLatency / 1000000000.0);
