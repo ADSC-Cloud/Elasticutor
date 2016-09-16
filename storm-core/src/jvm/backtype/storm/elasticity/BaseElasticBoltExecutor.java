@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -74,6 +75,9 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     private transient Queue<Integer> inputTupleLengthHistory;
 
     private transient Queue<Integer> outputTupleLengthHistory;
+
+    final int pendingTupleQueueCapacity = 1024;
+    private transient BlockingQueue<Tuple> pendingTupleQueue;
 
 
     public BaseElasticBoltExecutor(BaseElasticBolt bolt) {
@@ -159,38 +163,91 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         tupleSerializer = _holder.getTupleSerializer();
         inputTupleLengthHistory = new LinkedBlockingQueue<>();
         outputTupleLengthHistory = new LinkedBlockingQueue<>();
+
+        pendingTupleQueue = new LinkedBlockingQueue<>(pendingTupleQueueCapacity);
+        createInputTupleRoutingThread();
+
+
         if(_holder!=null) {
             _holder.registerElasticBolt(this, _taskId);
         }
         _elasticTasks.get_routingTable().enableRoutingDistributionSampling();
     }
 
-    @Override
-    public void execute(Tuple input) {
-        try {
-            final Object key = _bolt.getKey(input);
+    private boolean isSaturated() {
+        return pendingTupleQueue.remainingCapacity() / (double) pendingTupleQueueCapacity < 0.2;
+    }
 
-            // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
-            _keyBucketSampler.record(key);
-            if(inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
-                inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
-                if(inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
-                    inputTupleLengthHistory.poll();
-                }
-            }
+    private void createInputTupleRoutingThread() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (true) {
+                        try {
+                            Tuple input = pendingTupleQueue.take();
+                            final Object key = _bolt.getKey(input);
+
+                            // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
+                            _keyBucketSampler.record(key);
+                            if(inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+                                inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
+                                if(inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+                                    inputTupleLengthHistory.poll();
+                                }
+                            }
 
 
-            if(!_elasticTasks.tryHandleTuple(input,key)) {
-                System.err.println("elastic task fails to process a tuple!");
-                assert(false);
-            }
+                            if(!_elasticTasks.tryHandleTuple(input,key)) {
+                                System.err.println("elastic task fails to process a tuple!");
+                                assert(false);
+                            }
 //
 //        if(_elasticTasks==null||!_elasticTasks.tryHandleTuple(input,key))
 //            _bolt.execute(input, _outputCollector);
-        _inputRateTracker.notify(1);
-        } catch (Exception e) {
+                            _inputRateTracker.notify(1);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    @Override
+    public void execute(Tuple input) {
+        try {
+            pendingTupleQueue.put(input);
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
+//        try {
+//            final Object key = _bolt.getKey(input);
+//
+//            // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
+//            _keyBucketSampler.record(key);
+//            if(inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+//                inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
+//                if(inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+//                    inputTupleLengthHistory.poll();
+//                }
+//            }
+//
+//
+//            if(!_elasticTasks.tryHandleTuple(input,key)) {
+//                System.err.println("elastic task fails to process a tuple!");
+//                assert(false);
+//            }
+////
+////        if(_elasticTasks==null||!_elasticTasks.tryHandleTuple(input,key))
+////            _bolt.execute(input, _outputCollector);
+//        _inputRateTracker.notify(1);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
     }
 
     @Override
@@ -323,8 +380,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //            ExecutorParallelismPredictor predictor = new NaivePredictor();
             ExecutorParallelismPredictor predictor = new LoadBalancingAwarePredictor();
 
+            final boolean isSaturated = isSaturated();
+            if(isSaturated) {
+                Slave.getInstance().logOnMaster(String.format("Task %d is saturated!", _taskId));
+            }
 
-            final int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad);
+            final int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad, isSaturated);
             Slave.getInstance().sendMessageToMaster(String.format("Task %d: input rate=%.2f rate per task=%.2f latency: %.2f ms performance factor=%.2f", _taskId, inputRate, processingRatePerProcessor, averageLatency / 1000000.0, ElasticScheduler.getPerformanceFactor(balancedHashRouting)));
             return desirableParallelism;
         } catch (Exception e) {

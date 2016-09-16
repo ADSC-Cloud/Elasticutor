@@ -5,5 +5,5 @@ package backtype.storm.elasticity.scheduler.model;
  */
 public interface ExecutorParallelismPredictor {
 
-    int predict(Double inputRate, int currentDop, Double ratePerTask, long[] routeLoads, long maxShardLoad);
+    int predict(Double inputRate, int currentDop, Double ratePerTask, long[] routeLoads, long maxShardLoad, boolean isSaturated);
 }

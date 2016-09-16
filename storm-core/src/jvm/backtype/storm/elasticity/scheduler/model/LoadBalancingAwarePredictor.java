@@ -10,7 +10,7 @@ import backtype.storm.elasticity.scheduler.ElasticScheduler;
 public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor {
 
     @Override
-    public int predict(Double inputRate, int currentDop, Double ratePerTask, long[] routeLoads, long maxShardLoad) {
+    public int predict(Double inputRate, int currentDop, Double ratePerTask, long[] routeLoads, long maxShardLoad, boolean isSaturated) {
         final double overProvisionFactor = 0.5;
 
         final double overProvisionForAGivenDoP = (currentDop + overProvisionFactor) / currentDop;
@@ -31,6 +31,9 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
         if(inputRate * overProvisionForAGivenDoP > maxProcessingThroughput) {
             Slave.getInstance().sendMessageToMaster("the performance is bounded by the load balancing.");
             desirableDoP = currentDop;
+        } else if(isSaturated){
+//            Slave.getInstance().logOnMaster("");
+            desirableDoP = currentDop + 1;
         } else {
 
             Double performanceFactor = ElasticScheduler.getPerformanceFactor(routeLoads);

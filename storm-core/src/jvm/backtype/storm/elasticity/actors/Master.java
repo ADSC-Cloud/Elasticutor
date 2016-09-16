@@ -405,9 +405,9 @@ public class Master extends UntypedActor implements MasterService.Iface {
             balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
         }
 
-        System.out.println("ScalingOutSubtask will be called!");
+        System.out.println("ScalingOutSubtask of " + taskid + " will be called!");
         sendScalingOutSubtaskCommand(taskid);
-        System.out.println("ScalingOutSubtask is called!");
+        System.out.println("ScalingOutSubtask of " + taskid + "  is called!");
 //            System.out.println("A local new task " + taskid + "." + balancecHashRouting.getNumberOfRoutes() +" is created!");
 //            for(String name: _ipToWorkerLogicalName.keySet()) {
 //                System.out.println(String.format("%s: %s", name, _ipToWorkerLogicalName.get(name)));
@@ -627,12 +627,14 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     @Override
     public double reportTaskThroughput(int taskid) throws TException {
+        log("Received throughput query for task " + taskid);
         if(!_taskidToActorName.containsKey(taskid))
             throw new TaskNotExistException("task " + taskid + " does not exist!");
         final double ret;
         try {
-            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 3, TimeUnit.SECONDS);
+            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 30000, TimeUnit.SECONDS);
 //            ret = (double)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
+            log("answered " + taskid);
             return ret;
         } catch (Exception e) {
             System.out.print("[DEBUG:]");

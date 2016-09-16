@@ -206,7 +206,9 @@ public class Slave extends UntypedActor {
                 sendMessageToMaster("I received message " + message);
             } else if (message instanceof ThroughputQueryCommand) {
                 ThroughputQueryCommand throughputQueryCommand = (ThroughputQueryCommand) message;
+                System.out.println(String.format("Received throughput query for task %d", throughputQueryCommand.taskid));
                 double throughput = ElasticTaskHolder.instance().getThroughput(throughputQueryCommand.taskid);
+                System.out.println(String.format("Answered throughput query for task %d", throughputQueryCommand.taskid));
                 getSender().tell(throughput, getSelf());
             } else if (message instanceof DistributionQueryCommand) {
                 DistributionQueryCommand distributionQueryCommand = (DistributionQueryCommand)message;
