@@ -390,7 +390,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
     }
 
 
-    public void handleExecutorScalingOutRequest(int taskid, String targetIp) throws TException {
+    private void executorScalingOut(int taskid, String targetIp) throws TException {
 
 //        if(!ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(targetIp).equals(targetIp)) {
 //            System.out.println("Cannot get cores from " + targetIp);
@@ -431,12 +431,17 @@ public class Master extends UntypedActor implements MasterService.Iface {
     }
 
 
-
     public void handleExecutorScalingOutRequest(int taskid) {
+        handleExecutorScalingOutRequest(taskid, null);
+    }
+
+    public void handleExecutorScalingOutRequest(int taskid, String preferredIp) {
         String targetIp = null;
         try {
             String workerHostName = _elasticTaskIdToWorkerLogicalName.get(taskid);
-            String preferredIp = getIpForWorkerLogicalName(workerHostName);
+            if(preferredIp == null) {
+                preferredIp = getIpForWorkerLogicalName(workerHostName);
+            }
 
             targetIp = ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(preferredIp);
 
@@ -450,7 +455,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             }
             _taskToCoreLocations.get(taskid).add(targetIp);
 
-            handleExecutorScalingOutRequest(taskid, targetIp);
+            executorScalingOut(taskid, targetIp);
 //            RoutingTable balancecHashRouting = RoutingTableUtils.getBalancecHashRouting(getRoutingTable(taskid));
 //            if(balancecHashRouting == null) {
 //                createRouting(workerHostName,taskid,1,"balanced_hash");
