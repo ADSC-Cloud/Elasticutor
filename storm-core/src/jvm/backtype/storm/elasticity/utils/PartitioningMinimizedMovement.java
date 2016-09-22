@@ -61,7 +61,7 @@ public class PartitioningMinimizedMovement {
                 Ball ball = ballsInTheLargestBinList.get(i);
                 if(ball.size == 0) {
                     // avoid moving empty balls!
-                    break;
+//                    break;
                 }
                 if(largestBin.currentSize - smallestBin.currentSize > ball.size) {
                     // a valid movement is found!

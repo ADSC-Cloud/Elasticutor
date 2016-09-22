@@ -81,7 +81,7 @@ public class Config {
 
     public static int ResultQueueCapacity = 1024;
 
-    public static int RemoteExecutorInputQueueCapacity = 256;
+    public static int RemoteExecutorInputQueueCapacity = 64;
 
     public static int ElasticTaskHolderOutputQueueCapacity = 1024;
 
@@ -109,9 +109,9 @@ public class Config {
 
     public static int LoggingServerPort = 10000;
 
-    public static double latencySampleRate = 0.02;
+    public static double latencySampleRate = 0.1;
 
-    public static int numberOfLatencyHistoryRecords = 10;
+    public static int numberOfLatencyHistoryRecords = 100;
 
     public static double tupleLengthSampleRate = 0.001;
 

@@ -93,17 +93,19 @@ public class Master extends UntypedActor implements MasterService.Iface {
         inboxes.put(inbox);
     }
 
-    private synchronized Object sendAndReceiveWithPriority(ActorRef ref, Object message) throws TimeoutException, InterruptedException {
+    private Object sendAndReceiveWithPriority(ActorRef ref, Object message) throws TimeoutException, InterruptedException {
         return sendAndReceiveWithPriority(ref, message, 3000, TimeUnit.SECONDS);
     }
 
-    private synchronized Object sendAndReceiveWithPriority(ActorRef ref, Object message, int timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException {
-        prioritizedInbox.send(ref, message);
-        return prioritizedInbox.receive(new FiniteDuration(timeout, timeUnit));
+    private Object sendAndReceiveWithPriority(ActorRef ref, Object message, int timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException {
+        synchronized (prioritizedInbox) {
+            prioritizedInbox.send(ref, message);
+            return prioritizedInbox.receive(new FiniteDuration(timeout, timeUnit));
+        }
     }
 
     private synchronized Object sendAndReceive(ActorRef ref, Object message) throws TimeoutException, InterruptedException {
-        return sendAndReceive(ref, message, 3000, TimeUnit.SECONDS);
+        return sendAndReceive(ref, message, 60, TimeUnit.SECONDS);
     }
 
     private synchronized Object sendAndReceive(ActorRef ref, Object message, int timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException {
@@ -592,6 +594,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             return;
 
         } catch (Exception e) {
+            System.out.println("migrateTasks timeout");
             e.printStackTrace();
         }
     }
@@ -602,9 +605,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
             throw new HostNotExistException("Host " + workerName + " does not exist!");
         }
         try {
-            sendAndReceive(getContext().actorFor(_nameToPath.get(getHostByWorkerLogicalName(workerName))), new RoutingCreatingCommand(taskid, routeNo, type), 10000, TimeUnit.SECONDS);
+            sendAndReceive(getContext().actorFor(_nameToPath.get(getHostByWorkerLogicalName(workerName))), new RoutingCreatingCommand(taskid, routeNo, type), 60, TimeUnit.SECONDS);
             log("RoutingCreatingCommand has been sent!");
         }catch (Exception ex) {
+            System.out.println("createRouting timeout");
             ex.printStackTrace();
         }
     }
@@ -621,30 +625,30 @@ public class Master extends UntypedActor implements MasterService.Iface {
         RemoteRouteWithdrawCommand command = new RemoteRouteWithdrawCommand(getHostByWorkerLogicalName(hostName), taskid, route);
         try {
             log("RemoteRouteWithdrawCommand has been sent to " + hostName);
-            Status status = (Status) sendAndReceive(getContext().actorFor(_nameToPath.get(hostName)), command, 1000, TimeUnit.SECONDS);
+            Status status = (Status) sendAndReceive(getContext().actorFor(_nameToPath.get(hostName)), command, 60, TimeUnit.SECONDS);
             if(status.code == Status.ERROR) {
                 System.err.println(status.msg);
             }
         } catch (Exception ex) {
+            System.out.println("withdrawRemoteRoute timeout");
             ex.printStackTrace();
         }
     }
 
     @Override
     public double reportTaskThroughput(int taskid) throws TException {
-        log("Received throughput query for task " + taskid);
         if(!_taskidToActorName.containsKey(taskid))
             throw new TaskNotExistException("task " + taskid + " does not exist!");
         final double ret;
         try {
-            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 30000, TimeUnit.SECONDS);
+            ret = (double)sendAndReceiveWithPriority(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 10, TimeUnit.SECONDS);
 //            ret = (double)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ThroughputQueryCommand(taskid), 300000, TimeUnit.SECONDS);
-            log("answered " + taskid);
             return ret;
         } catch (Exception e) {
+            System.out.println("reportTaskThroughput timeout");
             System.out.print("[DEBUG:]");
             e.printStackTrace();
-            return -1.0;
+            return reportTaskThroughput(taskid);
         }
 
     }
@@ -673,6 +677,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new RoutingTableQueryCommand(taskid), 30, TimeUnit.SECONDS);
             return getRoutingTable(taskid).toString();
         } catch (Exception e) {
+            System.out.println("queryRoutingTable timeout");
             e.printStackTrace();
             return "Failed!";
         }
@@ -688,13 +693,14 @@ public class Master extends UntypedActor implements MasterService.Iface {
         try {
             sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), command, 10000, TimeUnit.SECONDS);
         } catch (Exception e) {
+            System.out.println("reassignBucketToRoute timeout");
             e.printStackTrace();
             return;
         }
 
-//        System.out.println("Shard reassignment time: " + (System.currentTimeMillis() - startTime));
+        System.out.println("Shard reassignment time: " + (System.currentTimeMillis() - startTime));
 
-//        System.out.println("======================= End SHARD REASSIGNMENT =======================\n");
+        System.out.println("======================= End SHARD REASSIGNMENT =======================\n");
 //        getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))).tell(command, getSelf());
     }
 
@@ -732,6 +738,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
         try {
             return (String)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new SubtaskLevelLoadBalancingCommand(taskid));
         } catch (Exception e) {
+            System.out.println("subtaskLevelLoadBalancing timeout");
             e.printStackTrace();
             return "Timeout!";
         }
@@ -766,12 +773,13 @@ public class Master extends UntypedActor implements MasterService.Iface {
         System.out.println("Scaling out message has been sent!");
         try {
 
-            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingOutSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
+            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingOutSubtaskCommand(taskid), 60, TimeUnit.SECONDS);
 
             if(returnStatus.code == Status.ERROR) {
                 System.err.println(returnStatus.msg);
             }
         } catch (Exception e) {
+            System.out.println("sendScalingOutSubtaskCommand timeout");
             e.printStackTrace();
         }
         System.out.println("Scaling out response is received!");
@@ -803,10 +811,11 @@ public class Master extends UntypedActor implements MasterService.Iface {
         }
         System.out.println("Scaling in message has been sent!");
         try {
-            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingInSubtaskCommand(taskid), 30000, TimeUnit.SECONDS);
+            Status returnStatus = (Status)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new ScalingInSubtaskCommand(taskid), 60, TimeUnit.SECONDS);
             System.out.println("Scaling in response is received!");
             return returnStatus.code == Status.OK;
         } catch (Exception e) {
+            System.out.println("sendScalingInSubtaskCommand timeout");
             e.printStackTrace();
             return false;
         }
@@ -860,6 +869,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
         try {
             return (Histograms)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new DistributionQueryCommand(taskid));
         } catch (Exception e) {
+            System.out.println("getDistributionHistogram timeout!");
             e.printStackTrace();
             return null;
         }
@@ -876,6 +886,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             }
             return (RoutingTable)received;
         } catch (Exception e) {
+            System.out.println("getRoutingTable timeout");
             e.printStackTrace();
             return null;
         }
@@ -887,8 +898,9 @@ public class Master extends UntypedActor implements MasterService.Iface {
         RoutingTableQueryCommand command = new RoutingTableQueryCommand(taskid);
         command.completeRouting = false;
         try {
-            return (RoutingTable)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), command, 3000, TimeUnit.SECONDS);
+            return (RoutingTable)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), command, 60, TimeUnit.SECONDS);
         } catch (Exception e) {
+            System.out.println("getOriginalRoutingTable timeout");
             e.printStackTrace();
             return null;
         }
@@ -900,6 +912,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
         try {
               return (Histograms)sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new BucketDistributionQueryCommand(taskid));
         } catch (Exception e) {
+            System.out.println("getBucketDistribution timeout!");
             e.printStackTrace();
             return null;
         }

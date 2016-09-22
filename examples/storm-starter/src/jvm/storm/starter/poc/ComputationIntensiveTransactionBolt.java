@@ -50,7 +50,7 @@ public class ComputationIntensiveTransactionBolt extends BaseElasticBolt{
         }
 
 
-        final int maxHistory = 1000;
+        final int maxHistory = 10000;
 
         public void insertBuy(Record record) {
             if(buys.size() >= maxHistory) {

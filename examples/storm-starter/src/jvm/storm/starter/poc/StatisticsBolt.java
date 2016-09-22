@@ -26,7 +26,7 @@ public class StatisticsBolt extends BaseElasticBolt {
 
     class TransactionHistory implements Serializable {
         ConcurrentLinkedQueue<TransactionRecord> transactions = new ConcurrentLinkedQueue<>();
-        final int maxHistory = 10000;
+        final int maxHistory = 100;
         public void insertNewRecord(double price, double volume) {
             if(transactions.size() >= maxHistory)
                 transactions.poll();
@@ -80,6 +80,7 @@ public class StatisticsBolt extends BaseElasticBolt {
         history.insertNewRecord(price, volume);
         history.getAveragePrice();
         history.getVariance();
+//        collector.ack(input);
 
     }
 

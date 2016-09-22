@@ -200,6 +200,8 @@ public class ElasticScheduler {
                             }
 
                             System.out.println("Snapshot: " + currentElasticExecutorInfos.values());
+                            System.out.println(ResourceManager.instance().computationResource.toString());
+
                             List<SchedulingAction> actions = scheduling.schedule(elasticExecutorInfos, ElasticScheduler.getInstance().resourceManager.computationResource.getFreeCPUCores(), dataIntensivenessThreshold);
                             System.out.println("The following actions will be performed: " + actions);
 
@@ -437,7 +439,7 @@ public class ElasticScheduler {
     public String optimizeBucketToRoutingMapping(int taskId, double threshold) throws TaskNotExistException, RoutingTypeNotSupportedException, TException {
 
         synchronized (lock) {
-            System.out.println("Task-level Load Balance model is called on Executor " + taskId);
+//            System.out.println("Task-level Load Balance model is called on Executor " + taskId);
             // 1. get routingTable
             RoutingTable routingTable = master.getRoutingTable(taskId);
             BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
@@ -460,12 +462,12 @@ public class ElasticScheduler {
 //            for(int i = 0; i < routeLoads.length; i++ ){
 //                System.out.println(i + ": " + routeLoads[i]);
 //            }
-            System.out.print("Workload factor: " + workloadFactor + "  Performance factor: " + performanceFactor);
-            System.out.println("  Threshold: " + threshold);
+//            System.out.print("Workload factor: " + workloadFactor + "  Performance factor: " + performanceFactor);
+//            System.out.println("  Threshold: " + threshold);
 
             if(workloadFactor > 0.99) {
-                System.out.println(histograms);
-                System.out.println(master.queryDistribution(taskId));
+//                System.out.println(histograms);
+//                System.out.println(master.queryDistribution(taskId));
             }
 
             if(skewness) {
@@ -494,7 +496,7 @@ public class ElasticScheduler {
                     return "ERROR!!!";
                 }
             } else {
-                System.out.println("No shard reassignment will be performed!");
+//                System.out.println("No shard reassignment will be performed!");
                 return "The workload is not skewed!";
             }
         }
@@ -551,14 +553,14 @@ public class ElasticScheduler {
         int totalMovements = plan.getReassignmentList().size();
         int i = 0;
         for(ShardReassignment reassignment: plan.getReassignmentList()) {
-//            System.out.println("\n===================START========================");
-//            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
+            System.out.println("\n===================START========================");
+            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
             String from = master.getRouteHosterName(reassignment.taskId, reassignment.originalRoute);
             String to = master.getRouteHosterName(reassignment.taskId, reassignment.newRoute);
-//            System.out.println("Movement: " + reassignment.toString());
-//            System.out.println("From " + from + " to " + to);
+            System.out.println("Movement: " + reassignment.toString());
+            System.out.println("From " + from + " to " + to);
             master.reassignBucketToRoute(reassignment.taskId, reassignment.shardId, reassignment.originalRoute, reassignment.newRoute);
-//            System.out.println("=====================END========================\n");
+            System.out.println("=====================END========================\n");
         }
     }
 

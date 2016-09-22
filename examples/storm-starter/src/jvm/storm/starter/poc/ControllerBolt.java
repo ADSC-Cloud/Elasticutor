@@ -75,7 +75,7 @@ public class ControllerBolt extends BaseRichBolt implements ResourceCentricContr
 
         createThriftThread(this);
 
-//        createLoadBalancingThread();
+        createLoadBalancingThread();
 
     }
 

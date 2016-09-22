@@ -11,7 +11,7 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
 
     @Override
     public int predict(Double inputRate, int currentDop, Double ratePerTask, long[] routeLoads, long maxShardLoad, boolean isSaturated) {
-        final double overProvisionFactor = 0.5;
+        final double overProvisionFactor = 1.5;
 
         final double overProvisionForAGivenDoP = (currentDop + overProvisionFactor) / currentDop;
 
@@ -28,11 +28,29 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
 
         int desirableDoP;
 
-        if(inputRate * overProvisionForAGivenDoP > maxProcessingThroughput) {
+
+
+        boolean isBoundedBySkewness = false;
+
+        // There are two ways to determine @isBoundedBySkewness
+
+        // 1st way:
+//        isBoundedBySkewness = inputRate * overProvisionForAGivenDoP > maxProcessingThroughput;
+
+        // 2nd way:
+        long maxRouteLoads = 0;
+        for(long load: routeLoads) {
+            maxRouteLoads = Math.max(maxRouteLoads, load);
+        }
+        isBoundedBySkewness = maxRouteLoads * 0.99 < maxShardLoad;
+
+
+        if(isBoundedBySkewness) {
             Slave.getInstance().sendMessageToMaster("the performance is bounded by the load balancing.");
             desirableDoP = currentDop;
         } else if(isSaturated){
-//            Slave.getInstance().logOnMaster("");
+            Slave.getInstance().logOnMaster(String.format("Saturated: inputRate: %.2f, currentDop: %d, ratePerTask: %.2f", inputRate, currentDop, ratePerTask));
+            Slave.getInstance().logOnMaster(String.format("MaxRouteLoad: %d, MaxShardLoad: %d", maxRouteLoads, maxShardLoad));
             desirableDoP = currentDop + 1;
         } else {
 
@@ -45,7 +63,7 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
                 //When the shard with the highest workload is assigned to the most overloaded task, neither load balancing can
                 // be improved by shard reassignments nor the processing capability can be enhanced by increasing the parallelism.
                 // In such case, we should not scale up.
-                long maxRouteLoads = Long.MIN_VALUE;
+                maxRouteLoads = Long.MIN_VALUE;
                 for (long i : routeLoads) {
                     maxRouteLoads = Math.max(i, maxRouteLoads);
                 }

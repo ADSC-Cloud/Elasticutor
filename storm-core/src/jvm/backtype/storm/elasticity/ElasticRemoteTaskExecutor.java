@@ -61,7 +61,10 @@ public class ElasticRemoteTaskExecutor {
         _elasticTasks.prepare(_outputCollector, keyValueState);
         _elasticTasks.createAndLaunchElasticTasks();
         createProcessingThread();
-        createStateCheckpointingThread();
+
+        //this is ignore now, as state fault tolerance is not support now. And state should be cloned before calling
+        // serialize() to avoid the concurrent modification exception.
+//        createStateCheckpointingThread();
     }
 
     public void createProcessingThread() {
@@ -129,6 +132,7 @@ public class ElasticRemoteTaskExecutor {
                                     PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.taskId, token.routeId);
                                     System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.taskId, token.routeId));
                                     ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.taskId).send(token.taskId, SerializationUtils.serialize(message));
+                                    System.out.println(String.format("PendingTupleCleanedMessage is sent back to %s",ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.taskId).toString()));
                                 }
                             }).start();
                         } else {
@@ -239,16 +243,16 @@ public class ElasticRemoteTaskExecutor {
             BalancedHashRouting exitingRouting = RoutingTableUtils.getBalancecHashRouting(_elasticTasks.get_routingTable());
             BalancedHashRouting incomingRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
             exitingRouting.update(incomingRouting);
-            Slave.getInstance().sendMessageToMaster("Balanced Hash routing is updated!");
+//            Slave.getInstance().sendMessageToMaster("Balanced Hash routing is updated!");
         } else {
             Slave.getInstance().sendMessageToMaster("Routing table cannot be updated as balanced routing table cannot be extracted!");
         }
 
         List<Integer> newRoutes = routingTable.getRoutes();
         ((PartialHashingRouting)_elasticTasks.get_routingTable()).addValidRoutes(newRoutes);
-        Slave.getInstance().sendMessageToMaster("Partial Hash routing is updated!");
+//        Slave.getInstance().sendMessageToMaster("Partial Hash routing is updated!");
 
-        Slave.getInstance().sendMessageToMaster("existing routing table: " + _elasticTasks.get_routingTable().toString());
+//        Slave.getInstance().sendMessageToMaster("existing routing table: " + _elasticTasks.get_routingTable().toString());
 
 
         for(int i:routingTable.getRoutes()) {

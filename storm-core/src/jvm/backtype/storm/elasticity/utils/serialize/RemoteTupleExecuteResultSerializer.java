@@ -9,6 +9,7 @@ import backtype.storm.tuple.Tuple;
 import com.esotericsoftware.kryo.io.Output;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -43,7 +44,11 @@ public class RemoteTupleExecuteResultSerializer {
             _kryoOut.writeInt(byteLength);
             if(byteLength != 0)
                 _kryoOut.writeBytes(bytes);
-            _kryo.serializeInto(tuple._outputTuple, _kryoOut);
+            if(tuple._outputTuple == null) {
+                _kryo.serializeInto(new ArrayList<Object>(), _kryoOut);
+            } else {
+                _kryo.serializeInto(tuple._outputTuple, _kryoOut);
+            }
             _kryoOut.writeInt(tuple._commandType);
             _kryoOut.writeInt(tuple._originalTaskID);
             return _kryoOut.toBytes();

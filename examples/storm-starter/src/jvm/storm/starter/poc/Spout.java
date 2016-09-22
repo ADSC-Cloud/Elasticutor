@@ -1,5 +1,7 @@
 package storm.starter.poc;
 
+import backtype.storm.elasticity.actors.Slave;
+import backtype.storm.elasticity.utils.FrequencyRestrictor;
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
@@ -8,9 +10,14 @@ import backtype.storm.tuple.Fields;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 import backtype.storm.tuple.Values;
+import backtype.storm.utils.Utils;
 
 /**
  * Created by robert on 25/5/16.
@@ -27,6 +34,8 @@ public class Spout extends BaseRichSpout {
 
     SpoutOutputCollector collector;
 
+    FrequencyRestrictor restrictor;
+
     @Override
     public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
         this.collector = collector;
@@ -37,6 +46,7 @@ public class Spout extends BaseRichSpout {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        restrictor = new FrequencyRestrictor(20000);
     }
 
 
@@ -47,11 +57,16 @@ public class Spout extends BaseRichSpout {
 //        Utils.sleep(1);
         try {
             String line = reader.readLine();
+            restrictor.getPermission();
+            if(line == null) {
+                Slave.getInstance().logOnMaster("Input stream is exhausted!###");
+            }
             String[] values = line.split("\\|");
 
             long orderNo = Long.parseLong(values[0]);
             String acct_id = values[13];
             int secCode = Integer.parseInt(values[11]);
+            secCode += (new Random(secCode).nextInt(5) + new Random().nextInt(1) + 1);
             double price = Double.parseDouble(values[8]);
             int volume = (int)Double.parseDouble(values[10]);
             String time1 = values[2];
@@ -82,4 +97,6 @@ public class Spout extends BaseRichSpout {
         declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
         declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
     }
+
+
 }

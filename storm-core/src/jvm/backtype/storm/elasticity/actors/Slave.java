@@ -62,6 +62,10 @@ public class Slave extends UntypedActor {
 
     MasterService.Client thriftClient;
 
+    String masterIp;
+
+    int masterThriftServerPort;
+
     final Object thriftClientLock = new Object();
 
     boolean supervisorActor = false; // indicate if this actor is used by a supervisor to communicate with the master.
@@ -84,6 +88,7 @@ public class Slave extends UntypedActor {
             TProtocol protocol = new TBinaryProtocol(transport);
 
             thriftClient = new MasterService.Client(protocol);
+            System.out.println("Thrift server is successfully connected.");
         } catch (TTransportException e) {
             e.printStackTrace();
         }
@@ -185,15 +190,20 @@ public class Slave extends UntypedActor {
                 TaskMigrationCommand taskMigrationCommand = (TaskMigrationCommand) message;
                 handleTaskMigrationCommandMessage(taskMigrationCommand);
                 getSender().tell("Task Migration finishes!", getSelf());
+                System.out.println("[Elastic]: handled  TaskMigrationCommand!");
             } else if (message instanceof ElasticTaskMigrationMessage) {
+                System.out.println("[Elastic]: received  ElasticTaskMigrationMessage!");
 //                sendMessageToMaster("Received Migration Message!!!!");
                 handleElasticTaskMigrationMessage((ElasticTaskMigrationMessage) message);
+                System.out.println("[Elastic]: handled  ElasticTaskMigrationMessage!");
             } else if (message instanceof RoutingCreatingCommand) {
+                System.out.println("[Elastic]: received  RoutingCreatingCommand!");
                 RoutingCreatingCommand creatingCommand = (RoutingCreatingCommand) message;
                 handleRoutingCreatingCommand(creatingCommand);
                 getSender().tell("Routing Creation Finished!", getSender());
-
+                System.out.println("[Elastic]: handled  RoutingCreatingCommand!");
             } else if (message instanceof RemoteRouteWithdrawCommand) {
+                System.out.println("[Elastic]: received  RemoteRouteWithdrawCommand!");
                 RemoteRouteWithdrawCommand withdrawCommand = (RemoteRouteWithdrawCommand) message;
                 try {
                     handleWithdrawRemoteElasticTasks(withdrawCommand);
@@ -201,20 +211,27 @@ public class Slave extends UntypedActor {
                 } catch (Exception e) {
                     getSender().tell(Status.Error(e.getMessage()), getSelf());
                 }
+                System.out.println("[Elastic]: handled  RemoteRouteWithdrawCommand!");
             } else if (message instanceof String) {
                 System.out.println("I received message " + message);
                 sendMessageToMaster("I received message " + message);
             } else if (message instanceof ThroughputQueryCommand) {
+                System.out.println("[Elastic]: received  ThroughputQueryCommand!");
                 ThroughputQueryCommand throughputQueryCommand = (ThroughputQueryCommand) message;
                 System.out.println(String.format("Received throughput query for task %d", throughputQueryCommand.taskid));
+//                Slave.getInstance().logOnMaster(String.format("[Throughput:]Received throughput query for task %d", throughputQueryCommand.taskid));
                 double throughput = ElasticTaskHolder.instance().getThroughput(throughputQueryCommand.taskid);
                 System.out.println(String.format("Answered throughput query for task %d", throughputQueryCommand.taskid));
                 getSender().tell(throughput, getSelf());
+                System.out.println("[Elastic]: handled  ThroughputQueryCommand!");
             } else if (message instanceof DistributionQueryCommand) {
+                System.out.println("[Elastic]: received  DistributionQueryCommand!");
                 DistributionQueryCommand distributionQueryCommand = (DistributionQueryCommand)message;
                 Histograms distribution = ElasticTaskHolder.instance().getDistribution(distributionQueryCommand.taskid);
                 getSender().tell(distribution, getSelf());
+                System.out.println("[Elastic]: handled  DistributionQueryCommand!");
             } else if (message instanceof RoutingTableQueryCommand) {
+                System.out.println("[Elastic]: received  RoutingTableQueryCommand!");
                 RoutingTableQueryCommand queryCommand = (RoutingTableQueryCommand)message;
                 RoutingTable queryResult;
                 if(queryCommand.completeRouting){
@@ -223,39 +240,47 @@ public class Slave extends UntypedActor {
                     queryResult = ElasticTaskHolder.instance().getOriginalRoutingTable(queryCommand.taskid);
                 }
                 getSender().tell(queryResult, getSelf());
+                System.out.println("[Elastic]: handled  RoutingTableQueryCommand!");
             } else if (message instanceof ReassignBucketToRouteCommand) {
-                System.out.println("I received ReassignBucketToRouteCommand message " + message);
+                System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
                 ReassignBucketToRouteCommand reassignBucketToRouteCommand = (ReassignBucketToRouteCommand) message;
                 ElasticTaskHolder.instance().reassignHashBucketToRoute(reassignBucketToRouteCommand.taskId, reassignBucketToRouteCommand.bucketId,
                         reassignBucketToRouteCommand.originalRoute, reassignBucketToRouteCommand.newRoute);
                 getSender().tell("Finished", getSelf());
+                System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
             } else if (message instanceof BucketDistributionQueryCommand) {
-                System.out.println("I received BucketDistributionQueryCommand!");
+                System.out.println("[Elastic]: received  BucketDistributionQueryCommand!");
 
                 BucketDistributionQueryCommand command = (BucketDistributionQueryCommand) message;
                 getSender().tell(ElasticTaskHolder.instance().getBucketDistributionForBalancedRoutingTable(command.taskid), getSelf());
+                System.out.println("[Elastic]: handled  BucketDistributionQueryCommand!");
             } else if (message instanceof WorkerRegistrationResponseMessage) {
+                System.out.println("[Elastic]: received  WorkerRegistrationResponseMessage!");
                 WorkerRegistrationResponseMessage responseMessage = (WorkerRegistrationResponseMessage) message;
                 System.out.println("Assigned logical name is" + responseMessage);
                 _logicalName = responseMessage.toString();
                 _ip = responseMessage.ip;
-                connectToMasterThriftServer(responseMessage.masterIp, 9090);
+                masterIp = responseMessage.masterIp;
+                masterThriftServerPort = 9090;
+                connectToMasterThriftServer(masterIp, masterThriftServerPort);
+                System.out.println("[Elastic]: handled  WorkerRegistrationResponseMessage!");
             } else if (message instanceof TestAliveMessage) {
 //                sendMessageToMaster("Alive: " + ((TestAliveMessage) message).msg);
             } else if (message instanceof ScalingOutSubtaskCommand) {
-                System.out.println("ScalingOutSubtaskCommand response will be sent!");
+                System.out.println("[Elastic]: received  ScalingOutSubtaskCommand!");
                 getSender().tell(ElasticTaskHolder.instance().handleScalingOutSubtaskCommand(((ScalingOutSubtaskCommand) message).taskId), getSelf());
-                System.out.println("ScalingOutSubtaskCommand response is sent!");
+                System.out.println("[Elastic]: handled  ScalingOutSubtaskCommand!");
             } else if (message instanceof ScalingInSubtaskCommand) {
-                System.out.println("ScalingInSubtaskCommand response will be sent!");
+                System.out.println("[Elastic]: received  ScalingInSubtaskCommand!");
                 getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
 //                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
 //                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
                 sendMessageObjectToMaster("ScalingInSubtaskCommand has been sent!");
-                System.out.println("ScalingInSubtaskCommand response is sent!");
+                System.out.println("[Elastic]: handled  ScalingInSubtaskCommand!");
             } else if (message instanceof SubtaskLevelLoadBalancingCommand) {
-
+                System.out.println("[Elastic]: received  SubtaskLevelLoadBalancingCommand!");
                 getSender().tell(ElasticTaskHolder.instance().handleSubtaskLevelLoadBalancingCommand(((SubtaskLevelLoadBalancingCommand) message).taskid), getSelf());
+                System.out.println("[Elastic]: handled  SubtaskLevelLoadBalancingCommand!");
             }
             else  {
                 System.out.println("[Elastic]: Unknown message.");
@@ -335,14 +360,16 @@ public class Slave extends UntypedActor {
 
     public void sendMessageToMaster(String message) {
 //        _master.tell(new LogMessage(message, _name ), getSelf());
-        try {
-            if(message != null)
-            synchronized (thriftClientLock) {
-                thriftClient.logOnMaster(_logicalName, message);
+        synchronized (thriftClientLock) {
+            try {
+                if (message != null)
+                    thriftClient.logOnMaster(_logicalName, message);
+            } catch (Exception e) {
+                System.out.println("thriftClient: " + thriftClient + " _logicalName: " + _logicalName + " message: " + message);
+                e.printStackTrace();
+                System.out.println("Try to reconnect thrift server...");
+                connectToMasterThriftServer(masterIp, masterThriftServerPort);
             }
-        } catch (Exception e) {
-            System.out.println("thriftClient: " + thriftClient + " _logicalName: " + _logicalName + " message: " + message );
-            e.printStackTrace();
         }
     }
 
