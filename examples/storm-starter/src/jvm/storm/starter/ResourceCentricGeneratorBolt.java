@@ -15,6 +15,9 @@ import backtype.storm.utils.Utils;
 import org.apache.commons.collections.ArrayStack;
 import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.math3.distribution.ZipfDistribution;
+import storm.starter.util.KeyGenerator;
+import storm.starter.util.RoundRobinKeyGenerator;
+import storm.starter.util.ZipfKeyGenerator;
 
 import java.util.*;
 
@@ -23,7 +26,7 @@ import java.util.*;
  */
 public class ResourceCentricGeneratorBolt implements IRichBolt{
 
-    ZipfDistribution _distribution;
+    KeyGenerator _generator;
     OutputCollector _collector;
     int _numberOfElements;
     double _exponent;
@@ -40,7 +43,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     private int taskIndex;
     int _prime;
 
-    final boolean enableMannualACK = true;
+    final boolean enableMannualACK = false;
 
     final private int puncutationGenrationFrequency = 400;
     final private int numberOfPendingTuple = 2000;
@@ -71,8 +74,10 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         }
     }
 
-    public ResourceCentricGeneratorBolt(int emit_cycles){
+    public ResourceCentricGeneratorBolt(int emit_cycles, int numberOfKeys, double exponent){
         _emit_cycles = emit_cycles;
+        this._numberOfElements = numberOfKeys;
+        this._exponent = exponent;
         _prime = 41;
     }
 
@@ -109,8 +114,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     Random random = new Random();
 
                     Thread.sleep(_emit_cycles);
-                    int key = _distribution.sample();
-                    key = ((key + _prime) * 577) % 13477;
+                    int key = _generator.generate();
+//                    key = ((key + _prime) * 577) % 13477;
 
                     int pos = routingTable.route(key);
                     int targetTaskId = downStreamTaskIds.get(pos);
@@ -123,7 +128,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     }
 
 
-                    _collector.emitDirect(targetTaskId, new Values(String.valueOf(key)));
+                    _collector.emitDirect(targetTaskId, new Values(key));
 
 
 //                    _collector.emit(new Values(String.valueOf(key)));
@@ -173,10 +178,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
         routingTable = new BalancedHashRouting(numberOfComputingTasks);
 
-        _numberOfElements = 1000;
-        _exponent = 1;
-
-        _distribution = new ZipfDistribution(_numberOfElements, _exponent);
+        createOrUpdateGenerator();
 
         monitor = new ThroughputMonitor(""+context.getThisTaskId());
         _emitKey = new emitKey();
@@ -200,6 +202,16 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     public void cleanup() { }
 
+    private void createOrUpdateGenerator() {
+        if(_exponent > 0) {
+            Slave.getInstance().logOnMaster("Zipf generator is used!");
+            _generator = new ZipfKeyGenerator(_numberOfElements, _exponent);
+        } else {
+            Slave.getInstance().logOnMaster("Round robin generator is used!");
+            _generator = new RoundRobinKeyGenerator(_numberOfElements);
+        }
+    }
+
     public void execute(Tuple tuple){
       //  setNumberOfElements(tuple);
       //  setExponent(tuple);
@@ -207,7 +219,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             _numberOfElements = Integer.parseInt(tuple.getString(0));
             _exponent = Double.parseDouble(tuple.getString(1));
             int seed = tuple.getInteger(2);
-            _distribution = new ZipfDistribution(_numberOfElements, _exponent);
+            createOrUpdateGenerator();
             _prime = primes[seed % (primes.length)];
             Slave.getInstance().logOnMaster(String.format("Prime is changed to %d on task %d, keys = %d, exp = %1.2f", _prime, taskId, _numberOfElements, _exponent ));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.UpstreamCommand)) {

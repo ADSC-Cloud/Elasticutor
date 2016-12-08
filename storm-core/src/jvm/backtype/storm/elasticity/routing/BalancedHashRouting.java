@@ -25,6 +25,8 @@ public class BalancedHashRouting implements RoutingTable {
 
     int numberOfHashValues;
 
+    long signature = 0;
+
     transient SlideWindowKeyBucketSample sample;
     transient SlidingWindowRouteSampler routeDistributionSampler;
 
@@ -94,6 +96,11 @@ public class BalancedHashRouting implements RoutingTable {
         routeDistributionSampler.enable();
     }
 
+    @Override
+    public long getSigniture() {
+        return signature;
+    }
+
     public Set<Integer> getBucketSet() {
         return hashValueToRoute.keySet();
     }
@@ -101,6 +108,7 @@ public class BalancedHashRouting implements RoutingTable {
     public synchronized void reassignBucketToRoute(int bucketid, int targetRoute) {
         hashValueToRoute.put(bucketid, targetRoute);
         numberOfRoutes = Math.max(targetRoute + 1, numberOfRoutes);
+        signature ++;
 //        ElasticTaskHolder.instance()._slaveActor.sendMessageToMaster(bucketid + ", " + targetRoute + " is put!");
     }
 
@@ -195,6 +203,7 @@ public class BalancedHashRouting implements RoutingTable {
     public synchronized void setBucketToRouteMapping( Map<Integer, Integer> newMapping) {
         this.hashValueToRoute.clear();
         this.hashValueToRoute.putAll(newMapping);
+        signature ++;
     }
 
     public synchronized void update(BalancedHashRouting newRoute) {
@@ -208,6 +217,7 @@ public class BalancedHashRouting implements RoutingTable {
      */
     @Override
     public synchronized int scalingOut() {
+        signature ++;
         numberOfRoutes++;
         routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
         routeDistributionSampler.enable();
@@ -219,6 +229,7 @@ public class BalancedHashRouting implements RoutingTable {
 
     @Override
     public synchronized void scalingIn() {
+        signature ++;
         int largestSubtaskIndex = numberOfRoutes - 1;
         for(int shard: hashValueToRoute.keySet()) {
             if(hashValueToRoute.get(shard) == largestSubtaskIndex)

@@ -328,7 +328,7 @@ public class Client extends ConnectionWithStatus implements IStatefulObject {
         }
 
         //Li Wang
-        while(pendingMessages.get()>16) {
+        while(pendingMessages.get()>1024) {
             try{
                 Thread.sleep(1);
             } catch (InterruptedException e ) {

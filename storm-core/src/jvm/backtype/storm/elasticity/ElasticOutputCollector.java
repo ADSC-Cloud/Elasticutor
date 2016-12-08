@@ -6,6 +6,7 @@ import backtype.storm.utils.Utils;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -13,9 +14,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class ElasticOutputCollector {
 
-    protected LinkedBlockingQueue<TupleExecuteResult> _outputQueue;
+    protected ArrayBlockingQueue<TupleExecuteResult> _outputQueue;
 
-    public ElasticOutputCollector(LinkedBlockingQueue outputQueue) {
+    public ElasticOutputCollector(ArrayBlockingQueue outputQueue) {
         _outputQueue = outputQueue;
     }
 

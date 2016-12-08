@@ -594,6 +594,7 @@ service MasterService {
   void scalingOutSubtask(1: i32 taskid) throws (1: TaskNotExistException tnee);
   bool scalingInSubtask(1: i32 taskid) throws (1: TaskNotExistException tnee);
   void logOnMaster(1: string fro, 2: string msg);
+  string getBucketDistributionString(1: i32 taskid) throws (1: TaskNotExistException tnee);
 
 }
 

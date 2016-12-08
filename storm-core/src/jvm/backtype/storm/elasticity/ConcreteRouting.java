@@ -43,6 +43,11 @@ public class ConcreteRouting implements RoutingTable {
 
     }
 
+    @Override
+    public long getSigniture() {
+        return 0;
+    }
+
     public void addRounting(Object key, Integer rount) {
         routingTable.put(key, rount);
     }

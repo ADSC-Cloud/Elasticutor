@@ -14,15 +14,14 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.RateTracker;
 import backtype.storm.utils.Utils;
-import storm.starter.util.ComputationSimulator;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class ResourceCentricComputationBolt extends BaseElasticBolt{
-    int sleepTimeInMilics;
+    int sleepTimeInNanoSeconds;
 
     List<Integer> upstreamTaskIds;
 
@@ -30,40 +29,47 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 
     int receivedMigrationCommand;
 
-    ConcurrentLinkedQueue<Long> latencyHistory;
+    ArrayBlockingQueue<Long> latencyHistory;
 
     transient RateTracker rateTracker;
     transient ElasticOutputCollector outputCollector;
 
-    public ResourceCentricComputationBolt(int sleepTimeInSecs) {
-        this.sleepTimeInMilics = sleepTimeInSecs;
+    private int recordLatencyEveryNTuples;
+    private long count;
+
+    public ResourceCentricComputationBolt(int sleepTimeInNanoSeconds) {
+        this.sleepTimeInNanoSeconds = sleepTimeInNanoSeconds;
     }
 
     @Override
     public void execute(Tuple tuple, ElasticOutputCollector collector) {
 //        System.out.println("execute");
 //        utils.sleep(sleepTimeInMilics);
+        long start = System.nanoTime();
         if(outputCollector == null)
             outputCollector = collector;
         String streamId = tuple.getSourceStreamId();
         if(streamId.equals(Utils.DEFAULT_STREAM_ID)) {
-            final long currentTime = System.nanoTime();
-//            ComputationSimulator.compute(sleepTimeInMilics * 1000000);
-            Utils.sleep(sleepTimeInMilics);
-            final long executionLatency = System.nanoTime() - currentTime;
-            latencyHistory.offer(executionLatency);
-            if(latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
-                latencyHistory.poll();
+//            final long currentTime = System.nanoTime();
+//            Utils.sleep(sleepTimeInNanoSeconds);
+//            final long executionLatency = System.nanoTime() - currentTime;
+            if(count++ % recordLatencyEveryNTuples == 0) {
+                latencyHistory.offer((long)sleepTimeInNanoSeconds);
+                if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
+                    latencyHistory.poll();
+                }
+                if(rateTracker!=null)
+                    rateTracker.notify(recordLatencyEveryNTuples);
             }
-            String number = tuple.getString(0);
-            Integer count = (Integer) getValueByKey(number);
-            if (count == null)
-                count = 0;
-            count++;
-            setValueByKey(number, count);
-            if(rateTracker!=null)
-                rateTracker.notify(1);
+//            String number = tuple.getString(0);
+//            Integer count = (Integer) getValueByKey(number);
+//            if (count == null)
+//                count = 0;
+//            count++;
+//            setValueByKey(number, count);
 //            collector.emit(tuple, new Values(number, count));
+
+            ElasticTopologySimulator.ComputationSimulator.compute((long)sleepTimeInNanoSeconds - (System.nanoTime() - start));
         } else if (streamId.equals(ResourceCentricZipfComputationTopology.StateMigrationCommandStream)) {
             receivedMigrationCommand++;
             int sourceTaskOffset = tuple.getInteger(0);
@@ -116,10 +122,12 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
         declareStatefulOperator();
         upstreamTaskIds = context.getComponentTasks("generator");
         receivedMigrationCommand = 0;
-        latencyHistory = new ConcurrentLinkedQueue<>();
+        latencyHistory = new ArrayBlockingQueue<>(Config.numberOfLatencyHistoryRecords);
         rateTracker = new RateTracker(1000,5);
 
         taskId = context.getThisTaskId();
+
+        recordLatencyEveryNTuples = (int)(1 / Config.latencySampleRate);
 
         new Thread(new Runnable() {
             @Override
@@ -144,7 +152,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 
     @Override
     public Serializable getKey(Tuple tuple) {
-        return (Serializable) tuple.getValue(0);
+        return tuple.getInteger(0);
     }
 
 }

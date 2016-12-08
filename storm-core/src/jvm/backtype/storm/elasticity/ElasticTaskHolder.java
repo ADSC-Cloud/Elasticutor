@@ -49,6 +49,7 @@ import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -99,7 +100,7 @@ public class ElasticTaskHolder {
 
     Map<Integer, IConnection> _originalTaskIdToPriorityConnection = new ConcurrentHashMap<>();
 
-    LinkedBlockingQueue<ITaskMessage> _sendingQueue = new LinkedBlockingQueue<>(Config.ElasticTaskHolderOutputQueueCapacity);
+    ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config.ElasticTaskHolderOutputQueueCapacity);
 
     Map<String, Semaphore> _taskidRouteToStateWaitingSemaphore = new ConcurrentHashMap<>();
 
@@ -340,8 +341,8 @@ public class ElasticTaskHolder {
                         object = _sendingQueue.take();
                         ITaskMessage firstMessage = (ITaskMessage) object;
                         drainer.add(firstMessage);
+                        _sendingQueue.drainTo(drainer, 2048);
 //                        _sendingQueue.drainTo(drainer, 2048);
-                        _sendingQueue.drainTo(drainer);
 
                         for(ITaskMessage message: drainer) {
     //                        System.out.println("sending...");
@@ -520,7 +521,7 @@ public class ElasticTaskHolder {
         }).start();
     }
 
-    public void createQueueUtilizationMonitoringThread(final LinkedBlockingQueue queue, final String queueName,final long capacity, final Double highWatermark, final Double lowWatermark) {
+    public void createQueueUtilizationMonitoringThread(final Queue queue, final String queueName,final long capacity, final Double highWatermark, final Double lowWatermark) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -1153,7 +1154,6 @@ public class ElasticTaskHolder {
     }
 
     public void reassignHashBucketToRoute(int taskid, int bucketId, int orignalRoute, int targetRoute) throws TaskNotExistingException, RoutingTypeNotSupportedException, InvalidRouteException, BucketNotExistingException {
-        SmartTimer.getInstance().start("ShardReassignment","total");
         SmartTimer.getInstance().start("ShardReassignment","prepare");
 
 
@@ -1230,14 +1230,16 @@ public class ElasticTaskHolder {
 //            _taskidRouteToConnection.get(taskid+"."+orignalRoute).send(taskid, SerializationUtils.serialize(reassignment));
 //        }
         SmartTimer.getInstance().stop("ShardReassignment", "rerouting");
-        SmartTimer.getInstance().start("ShardReassignment","state migration");
+        SmartTimer.getInstance().start("ShardReassignment","state migration 1");
 //        sendMessageToMaster("Begin state migration session!");
 
         // 3. handle state for that shard, if necessary
 
         // before state migration, we should make sure there is no pending tuples for consistency!
         makeSureTargetRouteNoPendingTuples(taskid, orignalRoute);
+        SmartTimer.getInstance().stop("ShardReassignment","state migration 1");
         // Update the routing table on the source
+        SmartTimer.getInstance().start("ShardReassignment","state migration 2");
         if(_taskidRouteToConnection.containsKey(taskid+"."+orignalRoute)){
 //            sendMessageToMaster("BucketToRouteReassignment is sent to the original Host ");
             _taskidRouteToConnection.get(taskid+"."+orignalRoute).send(taskid, SerializationUtils.serialize(reassignment));
@@ -1246,9 +1248,11 @@ public class ElasticTaskHolder {
 //        if(_taskidRouteToConnection.containsKey(taskid+"."+targetRoute)){
 //            _taskidRouteToConnection.get(taskid+"."+targetRoute).send(taskid, SerializationUtils.serialize(reassignment));
 //        }
-
+        SmartTimer.getInstance().stop("ShardReassignment","state migration 2");
         if(!targetHost.equals(originalHost)) {
-                HashBucketFilter filter = new HashBucketFilter(balancedHashRouting.getNumberOfBuckets(), bucketId);
+
+            SmartTimer.getInstance().start("ShardReassignment","state migration 3");
+            HashBucketFilter filter = new HashBucketFilter(balancedHashRouting.getNumberOfBuckets(), bucketId);
             if(!originalHost.equals("local")) {
                 StateFlushToken stateFlushToken = new StateFlushToken(taskid, orignalRoute, filter);
                 _taskidRouteToConnection.get(taskid+ "." + orignalRoute).send(taskid, SerializationUtils.serialize(stateFlushToken));
@@ -1264,6 +1268,8 @@ public class ElasticTaskHolder {
             } else {
 //                _slaveActor.sendMessageToMaster("State for the shard does not need to be flushed, as the source subtask is run on the original host!");
             }
+            SmartTimer.getInstance().stop("ShardReassignment","state migration 3");
+            SmartTimer.getInstance().start("ShardReassignment","state migration 4");
             if (!targetHost.equals("local")) {
                 KeyValueState partialState = getState(taskid).getValidState(filter);
 
@@ -1282,19 +1288,21 @@ public class ElasticTaskHolder {
             } else {
 //                _slaveActor.sendMessageToMaster("State for the shard does not need to migrate, as the target subtask is run on the original host!");
             }
+            SmartTimer.getInstance().stop("ShardReassignment", "state migration 4");
+
         } else {
 //            _slaveActor.sendMessageToMaster("State movement is not necessary, as the shard is moved within a host!");
         }
-        SmartTimer.getInstance().stop("ShardReassignment", "state migration");
 
         // 5. resume sending RemoteTuples to the target subtask
+        SmartTimer.getInstance().start("ShardReassignment", "resume");
         System.out.println("Begin to resume!");
         resumeSendingToTargetSubtask(taskid, targetRoute);
         resumeSendingToTargetSubtask(taskid, orignalRoute);
         System.out.println("Resumed!");
-        SmartTimer.getInstance().stop("ShardReassignment", "total");
+        SmartTimer.getInstance().stop("ShardReassignment", "resume");
 //        sendMessageToMaster("Reassignment completes!");
-//        _slaveActor.sendMessageToMaster(SmartTimer.getInstance().getTimerString("ShardReassignment"));
+        _slaveActor.sendMessageToMaster(SmartTimer.getInstance().getTimerString("ShardReassignment"));
         System.out.println("===End Shard Reassignment " + bucketId + " " + taskid + "." + orignalRoute + "---->" + taskid + "." + targetRoute);
 
     }

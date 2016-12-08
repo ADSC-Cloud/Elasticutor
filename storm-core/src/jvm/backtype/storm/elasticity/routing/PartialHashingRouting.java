@@ -15,6 +15,8 @@ public class PartialHashingRouting implements RoutingTable {
 
     RoutingTable _routingTable;
 
+    long signature = 0;
+
 //    /**
 //     * @param nRoutes is the number of routes processed by elastic tasks.
 //     */
@@ -34,16 +36,19 @@ public class PartialHashingRouting implements RoutingTable {
     public PartialHashingRouting setExceptionRoutes(ArrayList<Integer> exceptionRoutes) {
         _validRoutes.addAll(getRoutes());
         _validRoutes.removeAll(exceptionRoutes);
+        signature ++;
         return this;
     }
 
     public PartialHashingRouting addExceptionRoutes(ArrayList<Integer> exceptionRoutes) {
         _validRoutes.removeAll(exceptionRoutes);
+        signature ++;
         return this;
     }
 
     public PartialHashingRouting addExceptionRoute(Integer exception) {
         _validRoutes.remove(exception);
+        signature ++;
         return this;
     }
 
@@ -66,6 +71,11 @@ public class PartialHashingRouting implements RoutingTable {
     @Override
     public synchronized void enableRoutingDistributionSampling() {
         _routingTable.enableRoutingDistributionSampling();
+    }
+
+    @Override
+    public long getSigniture() {
+        return signature + _routingTable.getSigniture();
     }
 
     @Override
@@ -104,12 +114,15 @@ public class PartialHashingRouting implements RoutingTable {
     }
 
     public int getOrignalRoute(Object key) {
-        return _routingTable.route(key);
+        final int ret = _routingTable.route(key);
+        if(ret < 0) throw new RuntimeException(String.format("key: %s RoutingTable: %s", key.toString(), this.toString()));
+        return ret;
     }
 
     public PartialHashingRouting createComplementRouting() {
         PartialHashingRouting ret = new PartialHashingRouting(_routingTable);
         ret._validRoutes.removeAll(this._validRoutes);
+//        signature ++;
         return ret;
     }
 
@@ -124,6 +137,7 @@ public class PartialHashingRouting implements RoutingTable {
     }
 
     public synchronized void addValidRoutes(List<Integer> routes) {
+        signature ++;
         for(int i: routes) {
             if(_routingTable.getRoutes().contains(i)) {
                 _validRoutes.add(i);

@@ -16,6 +16,7 @@ public interface RoutingTable extends Serializable, ScalableRouting {
     public List<Integer> getRoutes();
     public Histograms getRoutingDistribution();
     public void enableRoutingDistributionSampling();
+    public long getSigniture();
 //    public int scalingOut();
 
     

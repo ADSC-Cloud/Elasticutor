@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -30,7 +31,7 @@ public class ElasticRemoteTaskExecutor {
 
     ElasticTasks _elasticTasks;
 
-    LinkedBlockingQueue<ITaskMessage> _resultQueue;
+    ArrayBlockingQueue<ITaskMessage> _resultQueue;
 
     LinkedBlockingQueue<Object> _inputQueue = new LinkedBlockingQueue<>(Config.RemoteExecutorInputQueueCapacity);
 
@@ -48,7 +49,7 @@ public class ElasticRemoteTaskExecutor {
 
 //    Runnable _stateCheckpointRunnable;
 
-    public ElasticRemoteTaskExecutor(ElasticTasks tasks, LinkedBlockingQueue resultQueue, BaseElasticBolt bolt ) {
+    public ElasticRemoteTaskExecutor(ElasticTasks tasks, ArrayBlockingQueue resultQueue, BaseElasticBolt bolt ) {
         _elasticTasks = tasks;
         _resultQueue = resultQueue;
         _bolt = bolt;

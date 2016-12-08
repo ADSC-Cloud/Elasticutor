@@ -4,7 +4,6 @@ import backtype.storm.Config;
 import backtype.storm.StormSubmitter;
 import backtype.storm.elasticity.BaseElasticBolt;
 import backtype.storm.elasticity.ElasticOutputCollector;
-import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.task.ShellBolt;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
@@ -15,13 +14,10 @@ import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
-import backtype.storm.utils.Utils;
-import storm.starter.spout.RandomSentenceSpout;
 import storm.starter.util.ComputationSimulator;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.Random;
 
 /**
  * Created by robert on 12/7/15.
@@ -47,10 +43,10 @@ public class WordCountTopologyElastic {
 
     public static class WordCount extends BaseElasticBolt {
 
-        int sleepTimeInMilics;
+        int sleepTimeInNanoSeconds;
 
-        public WordCount(int sleepTimeInSecs) {
-            this.sleepTimeInMilics = sleepTimeInSecs;
+        public WordCount(int sleepTimeInNanoSeconds) {
+            this.sleepTimeInNanoSeconds = sleepTimeInNanoSeconds;
 
         }
 
@@ -58,15 +54,15 @@ public class WordCountTopologyElastic {
         public void execute(Tuple tuple, ElasticOutputCollector collector) {
 //        utils.sleep(sleepTimeInMilics);
 //            Utils.sleep(sleepTimeInMilics/1000/1000);
-            ComputationSimulator.compute(sleepTimeInMilics);
+            ComputationSimulator.compute(sleepTimeInNanoSeconds);
 //            System.out.println("Time: " + sleepTimeInMilics);
-            String word = tuple.getString(0);
-            Integer count = (Integer)getValueByKey(word);
-            if (count == null)
-                count = 0;
-            count++;
-            setValueByKey(word,count);
-            collector.emit(tuple,new Values(word, count));
+//            String word = tuple.getString(0);
+//            Integer count = (Integer)getValueByKey(word);
+//            if (count == null)
+//                count = 0;
+//            count++;
+//            setValueByKey(word,count);
+//            collector.emit(tuple,new Values(word, count));
         }
 
 
@@ -132,7 +128,7 @@ public class WordCountTopologyElastic {
     public static void main(String[] args) throws Exception {
 
         if(args.length == 0) {
-            System.out.println("args: topology-name sleep-date-in-millis [debug|any other]");
+            System.out.println("args: topology-name sleep-date-in-nanoseconds [debug|any other]");
         }
 
         TopologyBuilder builder = new TopologyBuilder();

@@ -6,6 +6,7 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.Utils;
 
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -15,7 +16,7 @@ public class RemoteElasticOutputCollector extends ElasticOutputCollector {
 
     int _originalTaskId;
 
-    public RemoteElasticOutputCollector(LinkedBlockingQueue outputQueue, int originalTaskId) {
+    public RemoteElasticOutputCollector(ArrayBlockingQueue outputQueue, int originalTaskId) {
         super(outputQueue);
         _originalTaskId = originalTaskId;
     }

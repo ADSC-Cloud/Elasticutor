@@ -3,9 +3,12 @@ package backtype.storm.elasticity;
 import backtype.storm.elasticity.config.Config;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.RateTracker;
+import backtype.storm.utils.Utils;
 import org.joda.time.Seconds;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +22,7 @@ public class QueryRunnable implements Runnable {
 
     private boolean _terminationRequest = false;
 
-    private LinkedBlockingQueue<Tuple> _pendingTuples;
+    private ArrayBlockingQueue<Tuple> _pendingTuples;
 
     private ElasticOutputCollector _outputCollector;
 
@@ -35,7 +38,7 @@ public class QueryRunnable implements Runnable {
 
     private Thread forceSampleThread;
 
-    public QueryRunnable(BaseElasticBolt bolt, LinkedBlockingQueue<Tuple> pendingTuples, ElasticOutputCollector outputCollector, int id) {
+    public QueryRunnable(BaseElasticBolt bolt, ArrayBlockingQueue<Tuple> pendingTuples, ElasticOutputCollector outputCollector, int id) {
         _bolt = bolt;
         _pendingTuples = pendingTuples;
         _outputCollector = outputCollector;
@@ -85,6 +88,7 @@ public class QueryRunnable implements Runnable {
         try {
             int sample = 0;
             final int sampeEveryNTuples = (int)(1 / Config.latencySampleRate);
+            ArrayList<Tuple> drainer = new ArrayList<>();
             while (!_terminationRequest || !_pendingTuples.isEmpty()) {
                 Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
                 if(input!=null) {
@@ -102,6 +106,31 @@ public class QueryRunnable implements Runnable {
                     }
                     rateTracker.notify(1);
                 }
+
+//                _pendingTuples.drainTo(drainer, 8);
+////                Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
+//                if(drainer.isEmpty()) {
+//                    Utils.sleep(1);
+//                } else {
+//                    for (Tuple input : drainer) {
+////                    if (input != null) {
+//                        if (sample % sampeEveryNTuples == 0 || forceSample) {
+//                            final long currentTime = System.nanoTime();
+//                            _bolt.execute(input, _outputCollector);
+//                            final long executionLatency = System.nanoTime() - currentTime;
+//                            latencyHistory.offer(executionLatency);
+//                            if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
+//                                latencyHistory.poll();
+//                            }
+//                            forceSample = false;
+//                        } else {
+//                            _bolt.execute(input, _outputCollector);
+//                        }
+//                        rateTracker.notify(1);
+//                    }
+//                    drainer.clear();
+//                }
+
             }
             interrupted = true;
 

@@ -77,11 +77,11 @@ public class Config {
 
     public static double RoutingSamplingRate = 1.0;
 
-    public static int SubtaskInputQueueCapacity = 256;
+    public static int SubtaskInputQueueCapacity = 512;
 
     public static int ResultQueueCapacity = 1024;
 
-    public static int RemoteExecutorInputQueueCapacity = 64;
+    public static int RemoteExecutorInputQueueCapacity = 512;
 
     public static int ElasticTaskHolderOutputQueueCapacity = 1024;
 

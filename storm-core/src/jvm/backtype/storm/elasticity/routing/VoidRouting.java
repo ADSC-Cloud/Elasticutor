@@ -34,6 +34,11 @@ public class VoidRouting implements RoutingTable {
     }
 
     @Override
+    public long getSigniture() {
+        return 0;
+    }
+
+    @Override
     public int scalingOut() {
         return 0;
     }

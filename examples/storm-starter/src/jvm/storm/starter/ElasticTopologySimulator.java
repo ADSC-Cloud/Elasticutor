@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class ElasticTopologySimulator {
     public static class ComputationSimulator {
-        public static long compute(int timeInNanosecond) {
+        public static long compute(long timeInNanosecond) {
             final long start = System.nanoTime();
             long seed = start;
             while(System.nanoTime() - start < timeInNanosecond) {

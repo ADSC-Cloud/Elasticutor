@@ -35,8 +35,10 @@ public class Histograms implements Serializable {
         for(Object key: keys) {
             max = Math.max(histograms.get(key), max);
             min = Math.min(histograms.get(key), min);
-            sum += histograms.get(key);
+            long count = histograms.get(key);
+            sum += count;
 
+            if(count > 0)
             ret += key + ": " + histograms.get(key) + " ";
         }
         ret += "\n";

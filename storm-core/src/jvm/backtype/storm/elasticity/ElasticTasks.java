@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import backtype.storm.elasticity.state.*;
 import backtype.storm.utils.Utils;
@@ -34,7 +35,7 @@ public class ElasticTasks implements Serializable {
     private BaseElasticBolt _bolt;
 
     private int _taskID;
-    private transient HashMap<Integer, LinkedBlockingQueue<Tuple>> _queues;
+    private transient HashMap<Integer, ArrayBlockingQueue<Tuple>> _queues;
 
     private transient HashMap<Integer, Thread> _queryThreads;
 
@@ -42,7 +43,7 @@ public class ElasticTasks implements Serializable {
 
     private transient ElasticOutputCollector _elasticOutputCollector;
 
-    private transient LinkedBlockingQueue<ITaskMessage> _remoteTupleQueue;
+    private transient ArrayBlockingQueue<ITaskMessage> _remoteTupleQueue;
 
     private transient ElasticTaskHolder _taskHolder;
 
@@ -132,17 +133,17 @@ public class ElasticTasks implements Serializable {
             Slave.getInstance().sendMessageToMaster(String.format("Dispatch: %f", utilization));
         }
 
-
+        final long signature = _routingTable.getSigniture();
         int route = _routingTable.route(key);
         int originalRoute = route;
-        if(route == RoutingTable.remote)
+        if(signature != _routingTable.getSigniture() && route == RoutingTable.remote)
             originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_taskID, route);
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_taskID)) {
 
             // The routing table may be updated during the pausing phase, so we should recompute the route.
-            if (paused) {
+            if (paused && signature != _routingTable.getSigniture()) {
                 route = _routingTable.route(key);
                 if (route == RoutingTable.remote)
                     originalRoute = ((PartialHashingRouting) _routingTable).getOrignalRoute(key);
@@ -160,7 +161,7 @@ public class ElasticTasks implements Serializable {
 
                 if(new Random().nextInt(5000)==0)
                     System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, originalRoute));
-                
+
                 RemoteTuple remoteTuple = new RemoteTuple(_taskID, originalRoute, tuple);
 
                 try {
@@ -254,12 +255,12 @@ public class ElasticTasks implements Serializable {
             System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
             return;
         }
-        LinkedBlockingQueue<Tuple> inputQueue = new LinkedBlockingQueue<>(Config.SubtaskInputQueueCapacity);
+        ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
         _queues.put(i, inputQueue);
     }
 
     public void launchElasticTasksForGivenRoute(int i) {
-        LinkedBlockingQueue<Tuple> inputQueue = _queues.get(i);
+        ArrayBlockingQueue<Tuple> inputQueue = _queues.get(i);
         QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
         _queryRunnables.put(i, query);
         Thread newThread = new Thread(query);
@@ -276,7 +277,7 @@ public class ElasticTasks implements Serializable {
             System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
             return;
         }
-        LinkedBlockingQueue<Tuple> inputQueue = new LinkedBlockingQueue<>(Config.SubtaskInputQueueCapacity);
+        ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
         _queues.put(i, inputQueue);
 
         QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
@@ -294,7 +295,7 @@ public class ElasticTasks implements Serializable {
      * @param list list of exception routes
      * @return a PartialHashRouting that routes the excepted routes
      */
-    public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list, LinkedBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
+    public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list, ArrayBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
         if((!(_routingTable instanceof HashingRouting))&&(!(_routingTable instanceof BalancedHashRouting))&&(!(_routingTable instanceof PartialHashingRouting))) {
             throw new RoutingTypeNotSupportedException("cannot set Exception for non-hash routing: " + _routingTable.getClass().toString());
 //            System.err.println("cannot set Exception for non-hash routing");
@@ -330,7 +331,7 @@ public class ElasticTasks implements Serializable {
         return ret;
     }
 
-    public PartialHashingRouting addExceptionForHashRouting(int r, LinkedBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
+    public PartialHashingRouting addExceptionForHashRouting(int r, ArrayBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
         ArrayList<Integer> list = new ArrayList<>();
         list.add(r);
         return addExceptionForHashRouting(list, exceptedRoutingQueue);

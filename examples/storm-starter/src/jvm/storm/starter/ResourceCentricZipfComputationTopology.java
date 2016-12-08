@@ -43,7 +43,7 @@ public class ResourceCentricZipfComputationTopology {
         }
         builder.setSpout(Spout, new ZipfSpout(Integer.parseInt(args[1]), Double.parseDouble(args[2])), 1);
 
-        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3])),Integer.parseInt(args[4]))
+        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3]), Integer.parseInt(args[1]), Double.parseDouble(args[2])),Integer.parseInt(args[4]))
                 .allGrouping(Spout)
                 .allGrouping(Controller, UpstreamCommand)
                 .allGrouping(Controller, SeedUpdateStream)

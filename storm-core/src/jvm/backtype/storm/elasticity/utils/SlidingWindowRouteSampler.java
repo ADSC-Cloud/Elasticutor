@@ -1,5 +1,6 @@
 package backtype.storm.elasticity.utils;
 
+import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.utils.RateTracker;
 
 import java.util.HashMap;
@@ -62,9 +63,10 @@ public class SlidingWindowRouteSampler {
     public Histograms getDistribution() {
         HashMap<Integer, Long> distribution = new HashMap<>();
         for(Integer i=0; i < _nRoutes; i++ ) {
-            distribution.put(i, (long)(routeCounts[i].reportRate() * sampleLength / 1000));
+            distribution.put(i, (long)(routeCounts[i].reportRate()));
+            Slave.getInstance().logOnMaster(String.format("Route %d: %f", i, routeCounts[i].reportRate()));
         }
-
+        Slave.getInstance().logOnMaster(String.format("Histograms: %s", new Histograms(distribution).toString()));
         return new Histograms(distribution);
     }
 }

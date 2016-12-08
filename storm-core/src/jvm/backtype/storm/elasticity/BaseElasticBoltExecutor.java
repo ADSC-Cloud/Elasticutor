@@ -19,13 +19,17 @@ import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
+import backtype.storm.utils.DisruptorQueue;
 import backtype.storm.utils.RateTracker;
+import backtype.storm.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -44,7 +48,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
     private transient OutputCollector _originalCollector;
 
-    private transient LinkedBlockingQueue<TupleExecuteResult> _resultQueue;
+    private transient ArrayBlockingQueue<TupleExecuteResult> _resultQueue;
 
     private transient Thread _resultHandleThread;
 
@@ -79,6 +83,9 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     final int pendingTupleQueueCapacity = 1024;
     private transient BlockingQueue<Tuple> pendingTupleQueue;
 
+    private transient ArrayList<Tuple> inputDrainer = new ArrayList<>();
+    private long lastDrainerTime = 0;
+
 
     public BaseElasticBoltExecutor(BaseElasticBolt bolt) {
         _bolt = bolt;
@@ -88,14 +95,22 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
         @Override
         public void run() {
+            ArrayList<TupleExecuteResult> drainer = new ArrayList<>();
             while(true) {
                 try {
                     TupleExecuteResult result = _resultQueue.take();
-                    handle(result);
-                    LOG.debug("an execution result is emit!");
                 }  catch (InterruptedException ee ) {
                     ee.printStackTrace();
                     break;
+
+
+//                    _resultQueue.drainTo(drainer, 512);
+//                    if(drainer.isEmpty())
+//                        Utils.sleep(1);
+//                    for(TupleExecuteResult result: drainer)
+//                        handle(result);
+////                    LOG.debug("an execution result is emit!");
+//                    drainer.clear();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -144,7 +159,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         metrics = new ElasticExecutorMetrics();
         _keyBucketSampler = new KeyBucketSampler(Config.NumberOfShard);
-        _resultQueue = new LinkedBlockingQueue<>(Config.ResultQueueCapacity);
+        _resultQueue = new ArrayBlockingQueue<TupleExecuteResult>(Config.ResultQueueCapacity);
         _outputCollector = new ElasticOutputCollector(_resultQueue);
         _bolt.prepare(stormConf, context);
         _originalCollector = collector;
@@ -161,10 +176,11 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         tupleLengthSampleEveryNTuples = (int) (1 / Config.tupleLengthSampleRate);
         _holder = ElasticTaskHolder.instance();
         tupleSerializer = _holder.getTupleSerializer();
-        inputTupleLengthHistory = new LinkedBlockingQueue<>();
-        outputTupleLengthHistory = new LinkedBlockingQueue<>();
-
-        pendingTupleQueue = new LinkedBlockingQueue<>(pendingTupleQueueCapacity);
+        inputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
+        outputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
+        inputDrainer = new ArrayList<>();
+//        pendingTupleQueue = new LinkedBlockingQueue<>(pendingTupleQueueCapacity);
+        pendingTupleQueue = new ArrayBlockingQueue<>(pendingTupleQueueCapacity);
         createInputTupleRoutingThread();
 
 
@@ -183,29 +199,55 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             @Override
             public void run() {
                 try {
+                    ArrayList<Tuple> drainer = new ArrayList<>();
                     while (true) {
                         try {
                             Tuple input = pendingTupleQueue.take();
                             final Object key = _bolt.getKey(input);
 
                             // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
-                            _keyBucketSampler.record(key);
-                            if(inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+//                                  _keyBucketSampler.record(key);
+                            if (inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
                                 inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
-                                if(inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+                                if (inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
                                     inputTupleLengthHistory.poll();
                                 }
                             }
-
-
-                            if(!_elasticTasks.tryHandleTuple(input,key)) {
+                            if (!_elasticTasks.tryHandleTuple(input, key)) {
                                 System.err.println("elastic task fails to process a tuple!");
-                                assert(false);
+                                assert (false);
                             }
-//
-//        if(_elasticTasks==null||!_elasticTasks.tryHandleTuple(input,key))
-//            _bolt.execute(input, _outputCollector);
                             _inputRateTracker.notify(1);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+//                        }
+
+
+////////////////////////Enable drainer
+//                            pendingTupleQueue.drainTo(drainer, 8);
+//
+//                            if(drainer.isEmpty())
+//                                Utils.sleep(1);
+//                            else {
+//                                for (Tuple input : drainer) {
+//                                    final Object key = _bolt.getKey(input);
+//
+//                                    // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
+////                                  _keyBucketSampler.record(key);
+//                                    if (inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+//                                        inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
+//                                        if (inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+//                                            inputTupleLengthHistory.poll();
+//                                        }
+//                                    }
+//                                    if (!_elasticTasks.tryHandleTuple(input, key)) {
+//                                        System.err.println("elastic task fails to process a tuple!");
+//                                        assert (false);
+//                                    }
+//                                    _inputRateTracker.notify(1);
+//                                }
+//                                drainer.clear();
+//                            }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -219,8 +261,16 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
     @Override
     public void execute(Tuple input) {
+//            inputDrainer.add(input);
+//            if(System.currentTimeMillis() - lastDrainerTime > 10) {
+//                pendingTupleQueue.addAll(inputDrainer);
+//                lastDrainerTime = System.currentTimeMillis();
+//                inputDrainer.clear();
+//            }
         try {
+
             pendingTupleQueue.put(input);
+//            _inputRateTracker.notify(1);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

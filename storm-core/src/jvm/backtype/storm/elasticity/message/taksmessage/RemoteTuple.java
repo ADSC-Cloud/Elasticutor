@@ -17,6 +17,7 @@ public class RemoteTuple implements ITaskMessage {
     public RemoteTuple(int taskid, int route, Tuple tuple) {
         _taskId = taskid;
         _route = route;
+        if(route < 0) throw new RuntimeException("route is " + route);
         _tuple = tuple;
     }
 

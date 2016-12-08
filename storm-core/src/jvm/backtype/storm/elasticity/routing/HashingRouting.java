@@ -6,6 +6,7 @@ import backtype.storm.elasticity.utils.SlidingWindowRouteSampler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Created by Robert on 11/3/15.
@@ -13,6 +14,8 @@ import java.util.List;
 public class HashingRouting implements RoutingTable {
 
     private int numberOfRoutes;
+
+    private long signature = 0;
 
 
     transient SlidingWindowRouteSampler sampler;
@@ -82,12 +85,19 @@ public class HashingRouting implements RoutingTable {
     }
 
     @Override
+    public long getSigniture() {
+        return signature;
+    }
+
+    @Override
     public int scalingOut() {
+        signature ++;
         return numberOfRoutes++;
     }
 
     @Override
     public void scalingIn() {
+        signature ++;
         numberOfRoutes--;
     }
 
