@@ -32,10 +32,16 @@ public class SlideWindowKeyBucketSample implements Serializable {
         }
     }
 
-    public synchronized void record(Object key) {
+    public synchronized void recordKey(Object key) {
         if(enabled) {
             final int bucket = hashFunction.hash(key)%_nBuckets;
             buckets[bucket].notify(1);
+        }
+    }
+
+    public synchronized void recordShard(int index) {
+        if (enabled) {
+            buckets[index].notify(1);
         }
     }
 

@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -33,9 +34,29 @@ public class ElasticTopologySimulator {
             final long start = System.nanoTime();
             long seed = start;
             while(System.nanoTime() - start < timeInNanosecond) {
-                seed = (long) Math.sqrt(new Random().nextInt());
+                seed = (long) Math.sqrt(3.15);
             }
             return seed;
+
+//            try {
+//                TimeUnit.NANOSECONDS.sleep(timeInNanosecond);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//                return 0;
+        }
+        public static void main(String[] args) {
+            System.out.println(String.format("%d ns x %d, real time: %d ms", 1000, 1000, testCompute(1000, 1000)));
+            System.out.println(String.format("%d us x %d, real time: %d ms", 100, 10, testCompute(100000, 10)));
+            System.out.println(String.format("%d us x %d, real time: %d ms", 10, 100, testCompute(10000, 100)));
+            System.out.println(String.format("%d ms x %d, real time: %d ms", 1, 1000, testCompute(1000000, 1000)));
+        }
+
+        static long testCompute(long timeInNanoSeconds, int runs) {
+            long start = System.currentTimeMillis();
+            for(int i = 0; i < runs; i++)
+                compute(timeInNanoSeconds);
+            return System.currentTimeMillis() - start;
         }
     }
     public static class SplitSentence extends ShellBolt implements IRichBolt {

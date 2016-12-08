@@ -4,7 +4,7 @@ import backtype.storm.elasticity.config.Config;
 import backtype.storm.elasticity.utils.GlobalHashFunction;
 import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.elasticity.utils.SlideWindowKeyBucketSample;
-import backtype.storm.elasticity.utils.SlidingWindowRouteSampler;
+import backtype.storm.utils.RateTracker;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -17,32 +17,31 @@ import java.util.*;
  */
 public class BalancedHashRouting implements RoutingTable {
 
-    GlobalHashFunction hashFunction = GlobalHashFunction.getInstance();
+    private GlobalHashFunction hashFunction = GlobalHashFunction.getInstance();
 
-    int numberOfRoutes;
+    private int numberOfRoutes;
 
-    Map<Integer, Integer> hashValueToRoute;
+    private Map<Integer, Integer> shardToRoute;
 
-    int numberOfHashValues;
+    private int numberOfShards;
 
-    long signature = 0;
+    private long signature = 0;
 
     transient SlideWindowKeyBucketSample sample;
-    transient SlidingWindowRouteSampler routeDistributionSampler;
 
     public BalancedHashRouting(Map<Integer, Integer> hashValueToPartition, int numberOfRoutes) {
         this.numberOfRoutes = numberOfRoutes;
-        hashValueToRoute = new HashMap<>();
-        hashValueToRoute.putAll(hashValueToPartition);
-        numberOfHashValues = hashValueToPartition.size();
+        shardToRoute = new HashMap<>();
+        shardToRoute.putAll(hashValueToPartition);
+        numberOfShards = hashValueToPartition.size();
     }
 
     public BalancedHashRouting(int numberOfRoutes) {
         this.numberOfRoutes = numberOfRoutes;
-        numberOfHashValues = Config.NumberOfShard;
-        hashValueToRoute = new HashMap<>();
-        for(int i = 0; i < numberOfHashValues; i++) {
-            hashValueToRoute.put(i, i % numberOfRoutes);
+        numberOfShards = Config.NumberOfShard;
+        shardToRoute = new HashMap<>();
+        for(int i = 0; i < numberOfShards; i++) {
+            shardToRoute.put(i, i % numberOfRoutes);
         }
         enableSampling();
     }
@@ -54,19 +53,19 @@ public class BalancedHashRouting implements RoutingTable {
     }
 
     public void enableSampling() {
-        sample = new SlideWindowKeyBucketSample(numberOfHashValues);
+        sample = new SlideWindowKeyBucketSample(numberOfShards);
         sample.enable();
     }
 
     @Override
     public synchronized int route(Object key) {
-        final int shard = hashFunction.hash(key) % numberOfHashValues;
+        final int shard = hashFunction.hash(key) % numberOfShards;
         if(sample!=null)
-            sample.record(shard);
+            sample.recordShard(shard);
 
-        final int ret = hashValueToRoute.get(shard);
-        if(routeDistributionSampler != null)
-            routeDistributionSampler.record(ret);
+        final int ret = shardToRoute.get(shard);
+//        if(routeDistributionSampler != null)
+//            routeDistributionSampler.record(ret);
 
         return ret;
     }
@@ -87,13 +86,21 @@ public class BalancedHashRouting implements RoutingTable {
 
     @Override
     public Histograms getRoutingDistribution() {
-        return routeDistributionSampler.getDistribution();
+        Histograms bucketHistograms = getBucketsDistribution();
+        Histograms histograms = new Histograms();
+        histograms.setDefaultValueForAbsentKey(numberOfRoutes);
+        for (int i = 0; i < numberOfShards; i++) {
+            final long shardLoad = bucketHistograms.histograms.get(i);
+            final int targetRoute = shardToRoute.get(i);
+            histograms.histograms.put(targetRoute, histograms.histograms.get(targetRoute) + shardLoad);
+        }
+        return histograms;
     }
 
     @Override
     public synchronized void enableRoutingDistributionSampling() {
-        routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
-        routeDistributionSampler.enable();
+//        routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
+//        routeDistributionSampler.enable();
     }
 
     @Override
@@ -102,11 +109,11 @@ public class BalancedHashRouting implements RoutingTable {
     }
 
     public Set<Integer> getBucketSet() {
-        return hashValueToRoute.keySet();
+        return shardToRoute.keySet();
     }
 
     public synchronized void reassignBucketToRoute(int bucketid, int targetRoute) {
-        hashValueToRoute.put(bucketid, targetRoute);
+        shardToRoute.put(bucketid, targetRoute);
         numberOfRoutes = Math.max(targetRoute + 1, numberOfRoutes);
         signature ++;
 //        ElasticTaskHolder.instance()._slaveActor.sendMessageToMaster(bucketid + ", " + targetRoute + " is put!");
@@ -130,8 +137,8 @@ public class BalancedHashRouting implements RoutingTable {
                 routeToBuckets[i] = new ArrayList<>();
             }
 
-            for (int bucket : hashValueToRoute.keySet()) {
-                routeToBuckets[hashValueToRoute.get(bucket)].add(bucket);
+            for (int bucket : shardToRoute.keySet()) {
+                routeToBuckets[shardToRoute.get(bucket)].add(bucket);
             }
 
             for (ArrayList<Integer> list : routeToBuckets) {
@@ -172,8 +179,8 @@ public class BalancedHashRouting implements RoutingTable {
             System.out.println("There is something wrong with the routing table!");
             System.out.println("Number of route: " + numberOfRoutes);
             System.out.println("Shard to Route mapping:");
-            for(int shard: hashValueToRoute.keySet()) {
-                System.out.println(shard + "." + hashValueToRoute.get(shard));
+            for(int shard: shardToRoute.keySet()) {
+                System.out.println(shard + "." + shardToRoute.get(shard));
             }
             System.out.println();
 
@@ -186,23 +193,23 @@ public class BalancedHashRouting implements RoutingTable {
     }
 
     public int getNumberOfBuckets() {
-        return numberOfHashValues;
+        return numberOfShards;
     }
 
     public Histograms getBucketsDistribution() {
         Histograms ret = sample.getDistribution();
-        ret.setDefaultValueForAbsentKey(numberOfHashValues);
+        ret.setDefaultValueForAbsentKey(numberOfShards);
 
         return ret;
     }
 
     public Map<Integer, Integer> getBucketToRouteMapping() {
-        return this.hashValueToRoute;
+        return this.shardToRoute;
     }
 
     public synchronized void setBucketToRouteMapping( Map<Integer, Integer> newMapping) {
-        this.hashValueToRoute.clear();
-        this.hashValueToRoute.putAll(newMapping);
+        this.shardToRoute.clear();
+        this.shardToRoute.putAll(newMapping);
         signature ++;
     }
 
@@ -219,11 +226,6 @@ public class BalancedHashRouting implements RoutingTable {
     public synchronized int scalingOut() {
         signature ++;
         numberOfRoutes++;
-        routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
-        routeDistributionSampler.enable();
-
-//        if(super(PartialHashingRouting))
-
         return numberOfRoutes - 1;
     }
 
@@ -231,13 +233,38 @@ public class BalancedHashRouting implements RoutingTable {
     public synchronized void scalingIn() {
         signature ++;
         int largestSubtaskIndex = numberOfRoutes - 1;
-        for(int shard: hashValueToRoute.keySet()) {
-            if(hashValueToRoute.get(shard) == largestSubtaskIndex)
+        for(int shard: shardToRoute.keySet()) {
+            if(shardToRoute.get(shard) == largestSubtaskIndex)
                 throw new RuntimeException("There is at least one shard ("+ shard +") assigned to the Subtask with the largest index ("+ largestSubtaskIndex + "). Scaling in fails!");
         }
         numberOfRoutes--;
-        routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
-        routeDistributionSampler.enable();
 
+    }
+
+    public static void main(String[] args) {
+        final int numberOfRoutes = 8;
+        final RoutingTable routingTable = new BalancedHashRouting(numberOfRoutes);
+        final RateTracker rateTracker = new RateTracker(1000, 5);
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                long key = 0;
+                Random random = new Random();
+                while(true) {
+
+                    routingTable.route(random.nextLong());
+                    rateTracker.notify(1);
+                }
+            }
+        }).start();
+
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                System.out.println("Throughput: " + rateTracker.reportRate());
+                System.out.println("Route Histogram: " + routingTable.getRoutingDistribution());
+            }
+        }, 0, 1000);
     }
 }
