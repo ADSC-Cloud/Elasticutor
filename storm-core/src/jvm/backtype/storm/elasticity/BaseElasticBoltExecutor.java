@@ -13,6 +13,7 @@ import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.model.ExecutorParallelismPredictor;
 import backtype.storm.elasticity.scheduler.model.LoadBalancingAwarePredictor;
 import backtype.storm.elasticity.utils.KeyBucketSampler;
+import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
 import backtype.storm.serialization.KryoTupleSerializer;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
@@ -25,6 +26,8 @@ import backtype.storm.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Queue;
@@ -195,7 +198,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     }
 
     private void createInputTupleRoutingThread() {
-        new Thread(new Runnable() {
+        Thread dispatchThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -256,7 +259,11 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                     e.printStackTrace();
                 }
             }
-        }).start();
+        });
+        dispatchThread.start();
+
+        ThreadUtilizationMonitor.instance().registerMonitor(dispatchThread.getId(), String.format("Dispatch thread of Task %d", _elasticTasks.get_taskID()), -1, 5);
+
     }
 
     @Override
@@ -444,6 +451,28 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             Slave.getInstance().sendMessageToMaster(e.getMessage());
             return 1;
         }
+    }
+    public void createThreadUtilizationMonitoringThread(final long threadId, final String threadName, final double reportThreshold) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ThreadMXBean tmxb = ManagementFactory.getThreadMXBean();
+                long lastCpuTime = 0;
+                try {
+                    while(true) {
+                        Thread.sleep(5000);
+                        long cpuTime = tmxb.getThreadUserTime(threadId);
+                        double utilization = (cpuTime - lastCpuTime) / 5E9;
+                        lastCpuTime = cpuTime;
+                        if(utilization > reportThreshold) {
+                            Slave.getInstance().sendMessageToMaster("cpu utilization of " + threadName + " reaches " + utilization);
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
 }

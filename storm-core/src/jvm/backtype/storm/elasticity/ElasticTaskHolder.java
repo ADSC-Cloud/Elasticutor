@@ -24,6 +24,7 @@ import backtype.storm.elasticity.scheduler.ShardReassignmentPlan;
 import backtype.storm.elasticity.state.*;
 import backtype.storm.elasticity.utils.FirstFitDoubleDecreasing;
 import backtype.storm.elasticity.utils.Histograms;
+import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultDeserializer;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultSerializer;
 import backtype.storm.elasticity.utils.timer.SmartTimer;
@@ -493,7 +494,7 @@ public class ElasticTaskHolder {
         sendingThread.start();
         System.out.println("sending thread is created!");
 
-        createThreadUtilizationMonitoringThread(sendingThread.getId(), "Sending Thread", 0.7);
+        ThreadUtilizationMonitor.instance().registerMonitor(sendingThread.getId(), "Sending Thread", -1, 5);
 //        createThreadUtilizationMonitoringThread(sendingThread.getId(), "Sending Thread", -1);
 
     }
@@ -628,7 +629,8 @@ public class ElasticTaskHolder {
         });
         receivingThread.start();
 //        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", -1);
-        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", 0.7);
+//        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", 0.7);
+        ThreadUtilizationMonitor.instance().registerMonitor(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", -1, 5);
     }
 
 

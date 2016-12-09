@@ -90,52 +90,53 @@ public class QueryRunnable implements Runnable {
             final int sampeEveryNTuples = (int)(1 / Config.latencySampleRate);
             ArrayList<Tuple> drainer = new ArrayList<>();
             while (!_terminationRequest || !_pendingTuples.isEmpty()) {
-                Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
-                if(input!=null) {
-                    if(sample % sampeEveryNTuples ==0 || forceSample) {
-                        final long currentTime = System.nanoTime();
-                        _bolt.execute(input, _outputCollector);
-                        final long executionLatency = System.nanoTime() - currentTime;
-                        latencyHistory.offer(executionLatency);
-                        if(latencyHistory.size()>Config.numberOfLatencyHistoryRecords) {
-                            latencyHistory.poll();
-                        }
-                        forceSample = false;
-                    } else {
-                        _bolt.execute(input, _outputCollector);
-                    }
-                    rateTracker.notify(1);
-                }
-
-//                _pendingTuples.drainTo(drainer, 8);
-////                Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
-//                if(drainer.isEmpty()) {
-//                    Utils.sleep(1);
-//                } else {
-//                    for (Tuple input : drainer) {
-////                    if (input != null) {
-//                        if (sample % sampeEveryNTuples == 0 || forceSample) {
-//                            final long currentTime = System.nanoTime();
-//                            _bolt.execute(input, _outputCollector);
-//                            final long executionLatency = System.nanoTime() - currentTime;
-//                            latencyHistory.offer(executionLatency);
-//                            if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
-//                                latencyHistory.poll();
-//                            }
-//                            forceSample = false;
-//                        } else {
-//                            _bolt.execute(input, _outputCollector);
+//                Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
+//                if(input!=null) {
+//                    if(sample % sampeEveryNTuples ==0 || forceSample) {
+//                        final long currentTime = System.nanoTime();
+//                        _bolt.execute(input, _outputCollector);
+//                        final long executionLatency = System.nanoTime() - currentTime;
+//                        latencyHistory.offer(executionLatency);
+//                        if(latencyHistory.size()>Config.numberOfLatencyHistoryRecords) {
+//                            latencyHistory.poll();
 //                        }
-//                        rateTracker.notify(1);
+//                        forceSample = false;
+//                    } else {
+//                        _bolt.execute(input, _outputCollector);
 //                    }
-//                    drainer.clear();
+//                    rateTracker.notify(1);
 //                }
+//                }catch (InterruptedException e) {
+//                    e.printStackTrace();
+
+                _pendingTuples.drainTo(drainer, 16);
+//                Tuple input = _pendingTuples.poll(5, TimeUnit.MILLISECONDS);
+                if(drainer.isEmpty()) {
+                    Utils.sleep(1);
+                } else {
+                    for (Tuple input : drainer) {
+//                    if (input != null) {
+                        if (sample % sampeEveryNTuples == 0 || forceSample) {
+                            final long currentTime = System.nanoTime();
+                            _bolt.execute(input, _outputCollector);
+                            final long executionLatency = System.nanoTime() - currentTime;
+                            latencyHistory.offer(executionLatency);
+                            if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
+                                latencyHistory.poll();
+                            }
+                            forceSample = false;
+                        } else {
+                            _bolt.execute(input, _outputCollector);
+                        }
+                        rateTracker.notify(1);
+                    }
+                    drainer.clear();
+                }
 
             }
             interrupted = true;
 
-        }catch (InterruptedException e) {
-            e.printStackTrace();
+
         }catch (Exception ee) {
             System.err.print("Something is wrong in the query thread!");
             ee.printStackTrace();

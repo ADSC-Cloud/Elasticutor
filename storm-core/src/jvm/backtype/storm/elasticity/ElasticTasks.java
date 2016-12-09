@@ -11,6 +11,7 @@ import backtype.storm.elasticity.metrics.ThroughputForRoutes;
 import backtype.storm.elasticity.routing.*;
 import backtype.storm.elasticity.utils.GlobalHashFunction;
 import backtype.storm.elasticity.utils.KeyFrequencySampler;
+import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
 import backtype.storm.tuple.Tuple;
 
 import java.io.Serializable;
@@ -266,28 +267,32 @@ public class ElasticTasks implements Serializable {
         Thread newThread = new Thread(query);
         newThread.start();
         _queryThreads.put(i, newThread);
+        ThreadUtilizationMonitor.instance().registerMonitor(newThread.getId(), "query route " + i, -1, 5);
 //        System.out.println("created elastic worker threads for route "+i);
         System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
-//        ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route "+i);
+        ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route "+i);
         ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
     }
 
     public void createAndLaunchElasticTasksForGivenRoute(int i) {
-        if(!_routingTable.getRoutes().contains(i)) {
-            System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
-            return;
-        }
-        ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
-        _queues.put(i, inputQueue);
-
-        QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
-        _queryRunnables.put(i, query);
-        Thread newThread = new Thread(query);
-        newThread.start();
-        _queryThreads.put(i, newThread);
-        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
-//        System.out.println("created elastic worker threads for route "+i);
-        ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
+        createElasticTasksForGivenRoute(i);
+        launchElasticTasksForGivenRoute(i);
+//        if(!_routingTable.getRoutes().contains(i)) {
+//            System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
+//            return;
+//        }
+//        ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
+//        _queues.put(i, inputQueue);
+//
+//        QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
+//        _queryRunnables.put(i, query);
+//        Thread newThread = new Thread(query);
+//        newThread.start();
+//        ThreadUtilizationMonitor.instance().registerMonitor(newThread.getId(), "query route " + i, -1, 5);
+//        _queryThreads.put(i, newThread);
+//        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
+////        System.out.println("created elastic worker threads for route "+i);
+//        ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
     }
 
     /**
@@ -444,6 +449,7 @@ public class ElasticTasks implements Serializable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        ThreadUtilizationMonitor.instance().unregister(_queryThreads.get(route).getId());
 
         _queryRunnables.remove(route);
         _queryThreads.remove(route);
