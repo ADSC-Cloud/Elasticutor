@@ -60,7 +60,7 @@ public class ForwardBolt extends BaseRichBolt {
                         continue;
                     final String sourceStream = tuple.getSourceStreamId();
                     final int secCode = tuple.getIntegerByField(PocTopology.SEC_CODE);
-                    final int targetTaskIndex = routingTable.route(secCode);
+                    final int targetTaskIndex = routingTable.route(secCode).originalRoute;
                     final int targetTaskId = downStreamTaskIds.get(targetTaskIndex);
                     collector.emitDirect(targetTaskId, sourceStream, tuple.getValues());
                     collector.ack(tuple);

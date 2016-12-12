@@ -207,7 +207,7 @@ public class ElasticTaskHolder {
             if(existingState != null) {
                 for(Serializable key: existingState.getState().keySet()) {
     //                System.out.println("---->");
-                    if(complementHashingRouting.route(key)>=0) {
+                    if(complementHashingRouting.route(key).originalRoute>=0) {
                         state.setValueByKey(key, existingState.getValueByKey(key));
     //                    System.out.println("State <"+key+","+existingState.getValueByKey(key)+"> will be migrated!");
                     } else {

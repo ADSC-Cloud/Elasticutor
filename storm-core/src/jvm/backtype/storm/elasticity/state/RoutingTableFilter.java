@@ -28,6 +28,6 @@ public class RoutingTableFilter implements StateFilter{
 
     @Override
     public Boolean isValid(Object key) {
-        return _validRoutes.contains(_routingTable.route(key));
+        return _validRoutes.contains(_routingTable.route(key).originalRoute);
     }
 }

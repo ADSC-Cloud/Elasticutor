@@ -135,12 +135,12 @@ public class ElasticTasks implements Serializable {
         }
 
         final long signature = _routingTable.getSigniture();
-        int route = _routingTable.route(key);
+        RoutingTable.Route route = _routingTable.route(key);
 //        int originalRoute = route;
 //        if(signature != _routingTable.getSigniture() && route == RoutingTable.remote)
 //            originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
 
-        final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_taskID, route);
+        final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_taskID, route.originalRoute);
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_taskID)) {
 
             // The routing table may be updated during the pausing phase, so we should recompute the route.
@@ -150,11 +150,11 @@ public class ElasticTasks implements Serializable {
 //                    originalRoute = ((PartialHashingRouting) _routingTable).getOrignalRoute(key);
             }
 
-            if (route == RoutingTable.remote) {
-                int originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
+            if (route.route == RoutingTable.remote) {
+//                int originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticTasks!\n", key);
-                    str += "target route is " + originalRoute + "\n";
+                    str += "target route is " + route.originalRoute + "\n";
                     str += "target shard is " + GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard + "\n";
                     str += _routingTable.toString();
                     Slave.getInstance().sendMessageToMaster(str);
@@ -162,10 +162,10 @@ public class ElasticTasks implements Serializable {
                 }
 
                 if(new Random().nextInt(5000)==0)
-                    System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, originalRoute));
+                    System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, route.originalRoute));
 
 
-                RemoteTuple remoteTuple = new RemoteTuple(_taskID, originalRoute, tuple);
+                RemoteTuple remoteTuple = new RemoteTuple(_taskID, route.originalRoute, tuple);
 
                 try {
                     _remoteTupleQueue.put(remoteTuple);
@@ -177,7 +177,7 @@ public class ElasticTasks implements Serializable {
                 try {
                     if(new Random().nextInt(5000)==0)
                         System.out.println("A tuple is route to "+route+ " by the routing table!");
-                    _queues.get(route).put(tuple);
+                    _queues.get(route.route).put(tuple);
 //                System.out.println("A tuple is inserted into the processing queue!");
                 } catch (InterruptedException e) {
                     e.printStackTrace();

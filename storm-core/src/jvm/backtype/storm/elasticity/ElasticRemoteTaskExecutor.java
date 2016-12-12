@@ -114,7 +114,7 @@ public class ElasticRemoteTaskExecutor {
                             boolean handled = _elasticTasks.tryHandleTuple(input, _bolt.getKey(input));
                             count++;
                             if (count % 10000 == 0) {
-                                System.out.println("A remote tuple for " + _elasticTasks.get_taskID() + "." + _elasticTasks.get_routingTable().route(_bolt.getKey(input)) + "has been processed");
+                                System.out.println("A remote tuple for " + _elasticTasks.get_taskID() + "." + _elasticTasks.get_routingTable().route(_bolt.getKey(input)).originalRoute + "has been processed");
                                 count = 0;
                             }
 
@@ -214,7 +214,7 @@ public class ElasticRemoteTaskExecutor {
         KeyValueState stateForRoutes = new KeyValueState();
         HashSet<Integer> routeSet = new HashSet<>(routes);
         for (Serializable key: state.getState().keySet()) {
-            if(routeSet.contains(_elasticTasks.get_routingTable().route(key))) {
+            if(routeSet.contains(_elasticTasks.get_routingTable().route(key).originalRoute)) {
                 stateForRoutes.setValueByKey(key, state.getValueByKey(key));
             }
         }

@@ -95,12 +95,12 @@ public class PartialHashingRouting implements RoutingTable {
     }
 
     @Override
-    public synchronized int route(Object key) {
-        int route = _routingTable.route(key);
-        if (_validRoutes.contains(route))
+    public synchronized Route route(Object key) {
+        Route route = _routingTable.route(key);
+        if (_validRoutes.contains(route.route))
             return route;
         else
-            return RoutingTable.remote;
+            return new Route(RoutingTable.remote, route.route);
     }
 
     public List<Integer> getOriginalRoutes() {
@@ -114,7 +114,7 @@ public class PartialHashingRouting implements RoutingTable {
     }
 
     public int getOrignalRoute(Object key) {
-        final int ret = _routingTable.route(key);
+        final int ret = _routingTable.route(key).originalRoute;
         if(ret < 0) throw new RuntimeException(String.format("key: %s RoutingTable: %s", key.toString(), this.toString()));
         return ret;
     }
@@ -180,11 +180,11 @@ public class PartialHashingRouting implements RoutingTable {
 
         PartialHashingRouting partialHashingRouting2 = new PartialHashingRouting(balancedHashRouting);
 
-        System.out.println("2-->" + partialHashingRouting2.route(1));
+        System.out.println("2-->" + partialHashingRouting2.route(1).route);
 
         PartialHashingRouting complement2 = partialHashingRouting2.addExceptionRoute(1);
 
-        System.out.println("2-->" + partialHashingRouting2.route(1));
+        System.out.println("2-->" + partialHashingRouting2.route(1).route);
 
         System.out.println("Complement:"+complement2.getRoutes());
 

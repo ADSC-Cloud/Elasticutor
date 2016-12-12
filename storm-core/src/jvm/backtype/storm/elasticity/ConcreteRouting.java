@@ -13,10 +13,10 @@ public class ConcreteRouting implements RoutingTable {
     private HashMap<Object, Integer> routingTable;
 
     @Override
-    public int route(Object key) {
+    public Route route(Object key) {
         if(routingTable.containsKey(key))
-            return routingTable.get(key);
-        return RoutingTable.origin;
+            return new Route(routingTable.get(key));
+        return new Route(RoutingTable.origin);
     }
 
     @Override

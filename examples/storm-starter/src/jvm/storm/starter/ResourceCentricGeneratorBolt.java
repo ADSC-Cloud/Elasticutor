@@ -117,7 +117,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     int key = _generator.generate();
 //                    key = ((key + _prime) * 577) % 13477;
 
-                    int pos = routingTable.route(key);
+                    int pos = routingTable.route(key).originalRoute;
                     int targetTaskId = downStreamTaskIds.get(pos);
 
                     if(enableMannualACK) {

@@ -43,7 +43,7 @@ public class HashingRouting implements RoutingTable {
      * @return the number of route this key belongs to.
      */
     @Override
-    public synchronized int route(Object key) {
+    public synchronized Route route(Object key) {
 //        if(key instanceof String) {
 //            final int hashvalue = hashFunction.hashString(key.toString()).asInt();
 //            return Math.abs(hashvalue%(numberOfRoutes + 1)) - 1;
@@ -55,7 +55,7 @@ public class HashingRouting implements RoutingTable {
         if(sampler!=null)
             sampler.record(ret);
 
-            return ret;
+            return new Route(ret);
 //        }
     }
 
