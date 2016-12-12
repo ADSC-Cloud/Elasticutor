@@ -49,8 +49,8 @@ public class LoadBalancingAwarePredictor implements ExecutorParallelismPredictor
             Slave.getInstance().sendMessageToMaster("the performance is bounded by the load balancing.");
             desirableDoP = currentDop;
         } else if(isSaturated){
-            Slave.getInstance().logOnMaster(String.format("Saturated: inputRate: %.2f, currentDop: %d, ratePerTask: %.2f", inputRate, currentDop, ratePerTask));
-            Slave.getInstance().logOnMaster(String.format("MaxRouteLoad: %d, MaxShardLoad: %d", maxRouteLoads, maxShardLoad));
+//            Slave.getInstance().logOnMaster(String.format("Saturated: inputRate: %.2f, currentDop: %d, ratePerTask: %.2f", inputRate, currentDop, ratePerTask));
+//            Slave.getInstance().logOnMaster(String.format("MaxRouteLoad: %d, MaxShardLoad: %d", maxRouteLoads, maxShardLoad));
             desirableDoP = currentDop + 1;
         } else {
 

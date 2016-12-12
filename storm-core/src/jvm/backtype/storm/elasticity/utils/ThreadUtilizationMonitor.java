@@ -36,7 +36,7 @@ public class ThreadUtilizationMonitor {
                 if(context != null) {
                     double utilization = ThreadCpuUtilization.getCpuUtilizationRate(context);
                     if (utilization > reportThreshold) {
-                        Slave.getInstance().logOnMaster(String.format("Utilization of thread [%s] reaches %f!", threadName, utilization));
+//                        Slave.getInstance().logOnMaster(String.format("Utilization of thread [%s] reaches %f!", threadName, utilization));
                     }
                 }
             }

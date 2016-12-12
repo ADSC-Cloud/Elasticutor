@@ -61,6 +61,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print('  bool scalingInSubtask(i32 taskid)')
   print('  void logOnMaster(string fro, string msg)')
   print('  string getBucketDistributionString(i32 taskid)')
+  print('  string getExecutorStatus(i32 taskid)')
   print('')
   sys.exit(0)
 
@@ -230,6 +231,12 @@ elif cmd == 'getBucketDistributionString':
     print('getBucketDistributionString requires 1 args')
     sys.exit(1)
   pp.pprint(client.getBucketDistributionString(eval(args[0]),))
+
+elif cmd == 'getExecutorStatus':
+  if len(args) != 1:
+    print('getExecutorStatus requires 1 args')
+    sys.exit(1)
+  pp.pprint(client.getExecutorStatus(eval(args[0]),))
 
 else:
   print('Unrecognized method %s' % cmd)

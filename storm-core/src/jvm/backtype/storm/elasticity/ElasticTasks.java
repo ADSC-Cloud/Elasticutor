@@ -136,9 +136,9 @@ public class ElasticTasks implements Serializable {
 
         final long signature = _routingTable.getSigniture();
         int route = _routingTable.route(key);
-        int originalRoute = route;
-        if(signature != _routingTable.getSigniture() && route == RoutingTable.remote)
-            originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
+//        int originalRoute = route;
+//        if(signature != _routingTable.getSigniture() && route == RoutingTable.remote)
+//            originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_taskID, route);
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_taskID)) {
@@ -146,11 +146,12 @@ public class ElasticTasks implements Serializable {
             // The routing table may be updated during the pausing phase, so we should recompute the route.
             if (paused && signature != _routingTable.getSigniture()) {
                 route = _routingTable.route(key);
-                if (route == RoutingTable.remote)
-                    originalRoute = ((PartialHashingRouting) _routingTable).getOrignalRoute(key);
+//                if (route == RoutingTable.remote)
+//                    originalRoute = ((PartialHashingRouting) _routingTable).getOrignalRoute(key);
             }
 
             if (route == RoutingTable.remote) {
+                int originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticTasks!\n", key);
                     str += "target route is " + originalRoute + "\n";
@@ -162,6 +163,7 @@ public class ElasticTasks implements Serializable {
 
                 if(new Random().nextInt(5000)==0)
                     System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, originalRoute));
+
 
                 RemoteTuple remoteTuple = new RemoteTuple(_taskID, originalRoute, tuple);
 

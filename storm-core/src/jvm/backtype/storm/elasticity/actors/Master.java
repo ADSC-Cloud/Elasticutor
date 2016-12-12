@@ -262,10 +262,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
             final String logicalName = ip +":"+ workerRegistrationMessage.getPort();
             _hostNameToWorkerLogicalName.put(workerRegistrationMessage.getName(), logicalName);
 
-            if(!_ipToWorkerLogicalName.containsKey(ip))
-                _ipToWorkerLogicalName.put(ip, new HashSet<String>());
-            _ipToWorkerLogicalName.get(ip).add(logicalName);
-
+//            if(!_ipToWorkerLogicalName.containsKey(ip))
+//                _ipToWorkerLogicalName.put(ip, new HashSet<String>());
+//            _ipToWorkerLogicalName.get(ip).add(logicalName);
+            addWorkerToIp(ip, logicalName);
             printIpToWorkerLogicalName();
 //            ResourceManager.instance().computationResource.registerNode(ip, workerRegistrationMessage.getNumberOfProcessors());
             System.out.println(ResourceManager.instance().computationResource);
@@ -368,6 +368,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
     public String getAWorkerLogicalNameOnAGivenIp(String ip) {
         Set<String> workers = _ipToWorkerLogicalName.get(ip);
+        if (workers == null || workers.size() == 0) {
+            System.out.println(_ipToWorkerLogicalName);
+            throw new RuntimeException(String.format("cannot find workers for ip %s", ip));
+        }
         return new ArrayList<>(workers).get(new Random().nextInt(workers.size()));
     }
 
@@ -849,6 +853,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
         return getBucketDistribution(taskid).toString();
     }
 
+
     String extractIpFromActorAddress(String address) {
         Pattern p = Pattern.compile( "@([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)" );
         Matcher m = p.matcher(address);
@@ -865,7 +870,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
             if(_ipToWorkerLogicalName.get(ip).contains(workerName))
                 return ip;
         }
-        return null;
+        throw new RuntimeException(String.format("Cannot extract ip from %s", workerName));
     }
 
     public Histograms getDistributionHistogram(int taskid) throws TaskNotExistException{
@@ -923,6 +928,18 @@ public class Master extends UntypedActor implements MasterService.Iface {
         }
     }
 
+    public String getExecutorStatus(int taskid) throws TException {
+        if (!_taskidToActorName.containsKey(taskid))
+            throw new TaskNotExistException(String.format("Task %d does not exist!", taskid));
+        try {
+            return (String) sendAndReceive(getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskid))), new GetExecutorStatusCommand(taskid));
+        } catch (Exception e) {
+            System.out.println("getExecutorStatus timeout!");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 
 
     public String getRouteHosterName(int taskid, int route) {
@@ -936,4 +953,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
         }
     }
 
+    void addWorkerToIp(String ip, String logicalName) {
+        if(!_ipToWorkerLogicalName.containsKey(ip))
+            _ipToWorkerLogicalName.put(ip, new HashSet<String>());
+
+        _ipToWorkerLogicalName.get(ip).add(logicalName);
+    }
 }

@@ -14,6 +14,7 @@ import backtype.storm.elasticity.message.taksmessage.*;
 import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.metrics.ThroughputForRoutes;
 import backtype.storm.elasticity.metrics.WorkerMetrics;
+import backtype.storm.elasticity.networking.Sender;
 import backtype.storm.elasticity.resource.ResourceMonitor;
 import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
@@ -1888,6 +1889,17 @@ public class ElasticTaskHolder {
         }).start();
 
         sendMessageToMaster("Parallelism Predication thread is created on" + _slaveActor.getIp());
+    }
+
+    public String generateExecutorStatusString(int taskId) {
+        if(!_bolts.containsKey(taskId))
+            return String.format("Task %d does not exist on %s", taskId, Slave.getInstance().getLogicalName());
+        String ret = String.format("Task %d:\n", taskId);
+        List<Integer> routes = RoutingTableUtils.getOriginalRoutes(_bolts.get(taskId).get_elasticTasks().get_routingTable());
+        for(Integer route: routes) {
+            ret += String.format("Route %d: %s\n", route, routeIdToRemoteHost.get(new RouteId(taskId, route)));
+        }
+        return ret;
     }
 
 }

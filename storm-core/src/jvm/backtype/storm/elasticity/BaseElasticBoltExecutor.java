@@ -439,7 +439,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
             final boolean isSaturated = isSaturated();
             if(isSaturated) {
-                Slave.getInstance().logOnMaster(String.format("Task %d is saturated!", _taskId));
+//                Slave.getInstance().logOnMaster(String.format("Task %d is saturated!", _taskId));
             }
 
             final int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad, isSaturated);
