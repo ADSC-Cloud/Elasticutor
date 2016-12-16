@@ -43,7 +43,7 @@ public class WordCountTopologyElastic {
 
     public static class WordCount extends BaseElasticBolt {
 
-        int sleepTimeInNanoSeconds;
+        int sleepTimeInNanoSeconds; // for testing
 
         public WordCount(int sleepTimeInNanoSeconds) {
             this.sleepTimeInNanoSeconds = sleepTimeInNanoSeconds;
@@ -52,17 +52,15 @@ public class WordCountTopologyElastic {
 
         @Override
         public void execute(Tuple tuple, ElasticOutputCollector collector) {
-//        utils.sleep(sleepTimeInMilics);
-//            Utils.sleep(sleepTimeInMilics/1000/1000);
-            ComputationSimulator.compute(sleepTimeInNanoSeconds);
-//            System.out.println("Time: " + sleepTimeInMilics);
-//            String word = tuple.getString(0);
-//            Integer count = (Integer)getValueByKey(word);
-//            if (count == null)
-//                count = 0;
-//            count++;
-//            setValueByKey(word,count);
-//            collector.emit(tuple,new Values(word, count));
+
+            // ComputationSimulator.compute(sleepTimeInNanoSeconds); // for testing
+            String word = (String)getKey(tuple);
+            Integer count = (Integer)getValueByKey(word);
+            if (count == null)
+                count = 0;
+            count++;
+            setValueByKey(word, count);
+            collector.emit(tuple, new Values(word, count));
         }
 
 
@@ -108,16 +106,6 @@ public class WordCountTopologyElastic {
         public void execute(Tuple input, BasicOutputCollector collector) {
 //      System.out.println(input.getString(0)+"--->"+input.getInteger(1));
         }
-
-//        @Override
-//        public Object getKey(Tuple tuple) {
-//            return tuple.getString(0);
-//        }
-//
-//        @Override
-//        public void execute(Tuple input, ElasticOutputCollector collector) {
-//            System.out.println(input.getString(0)+"--->"+input.getInteger(1));
-//        }
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
