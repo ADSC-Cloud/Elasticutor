@@ -940,6 +940,10 @@ public class Master extends UntypedActor implements MasterService.Iface {
         }
     }
 
+    @Override
+    public String queryClusterResource() throws TException {
+        return ResourceManager.instance().computationResource.toString();
+    }
 
 
     public String getRouteHosterName(int taskid, int route) {

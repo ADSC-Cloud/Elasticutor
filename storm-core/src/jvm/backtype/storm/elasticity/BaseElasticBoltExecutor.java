@@ -13,16 +13,14 @@ import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.model.ExecutorParallelismPredictor;
 import backtype.storm.elasticity.scheduler.model.LoadBalancingAwarePredictor;
 import backtype.storm.elasticity.utils.KeyBucketSampler;
-import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
+import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.serialization.KryoTupleSerializer;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
-import backtype.storm.utils.DisruptorQueue;
 import backtype.storm.utils.RateTracker;
-import backtype.storm.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +32,6 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Created by Robert on 11/4/15.
@@ -182,8 +179,9 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         inputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
         outputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
         inputDrainer = new ArrayList<>();
-//        pendingTupleQueue = new LinkedBlockingQueue<>(pendingTupleQueueCapacity);
         pendingTupleQueue = new ArrayBlockingQueue<>(pendingTupleQueueCapacity);
+        MonitorUtils.instance().registerQueueMonitor(pendingTupleQueue, "input pending queue",
+                pendingTupleQueueCapacity, null, 0.9, 5);
         createInputTupleRoutingThread();
 
 
@@ -262,7 +260,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         });
         dispatchThread.start();
 
-        ThreadUtilizationMonitor.instance().registerMonitor(dispatchThread.getId(), String.format("Dispatch thread of Task %d", _elasticTasks.get_taskID()), -1, 5);
+        MonitorUtils.instance().registerThreadMonitor(dispatchThread.getId(), String.format("Dispatch thread of Task %d", _elasticTasks.get_taskID()), 0.8, 5);
 
     }
 

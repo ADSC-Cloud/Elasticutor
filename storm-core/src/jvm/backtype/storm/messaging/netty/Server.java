@@ -203,7 +203,7 @@ class Server extends ConnectionWithStatus implements IStatefulObject {
             ArrayList<TaskMessage> msgGroup = messageGroups[receiverId];
             if (null != msgGroup) {
                 //Li Wang
-                while(pendingMessages[receiverId].get()>1024) {
+                while(pendingMessages[receiverId].get() > 1024 * 8) {
                     Thread.sleep(1);
                 }
                 message_queue[receiverId].put(msgGroup);

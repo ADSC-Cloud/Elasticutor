@@ -10,6 +10,7 @@ import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
+import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.elasticity.state.*;
 import backtype.storm.utils.Utils;
@@ -33,7 +34,7 @@ public class ElasticRemoteTaskExecutor {
 
     ArrayBlockingQueue<ITaskMessage> _resultQueue;
 
-    LinkedBlockingQueue<Object> _inputQueue = new LinkedBlockingQueue<>(Config.RemoteExecutorInputQueueCapacity);
+    ArrayBlockingQueue<Object> _inputQueue = new ArrayBlockingQueue<>(Config.RemoteExecutorInputQueueCapacity);
 
     RemoteElasticOutputCollector _outputCollector;
 
@@ -72,6 +73,9 @@ public class ElasticRemoteTaskExecutor {
         _processingRunnable = new InputTupleRouting();
         _processingThread = new Thread(_processingRunnable);
         _processingThread.start();
+        MonitorUtils.instance().registerQueueMonitor(_inputQueue, "Remote Execute Input Queue",
+                Config.RemoteExecutorInputQueueCapacity, null, 0.8, 5);
+        MonitorUtils.instance().registerThreadMonitor(_processingThread.getId(), "remote dispatch thread", 0.9, 5);
 //        ElasticTaskHolder.instance().createQueueUtilizationMonitoringThread(_inputQueue, "Remote Input Queue", Config.RemoteExecutorInputQueueCapacity, 0.9, 0.1);
 
         System.out.println("processing thread is created!");
@@ -229,7 +233,7 @@ public class ElasticRemoteTaskExecutor {
         return getStateForRoutes(routes);
     }
 
-    public LinkedBlockingQueue<Object> get_inputQueue() {
+    public ArrayBlockingQueue<Object> get_inputQueue() {
         return _inputQueue;
     }
 
@@ -280,6 +284,8 @@ public class ElasticRemoteTaskExecutor {
 //        _processingRunnable.terminate();
 
         _stateCheckpointingThread.interrupt();
+
+        MonitorUtils.instance().unregister(_processingThread.getId());
         _processingThread.interrupt();
         try {
             _stateCheckpointingThread.join();

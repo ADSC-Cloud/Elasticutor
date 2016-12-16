@@ -14,7 +14,6 @@ import backtype.storm.elasticity.message.taksmessage.*;
 import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.metrics.ThroughputForRoutes;
 import backtype.storm.elasticity.metrics.WorkerMetrics;
-import backtype.storm.elasticity.networking.Sender;
 import backtype.storm.elasticity.resource.ResourceMonitor;
 import backtype.storm.elasticity.routing.BalancedHashRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
@@ -25,7 +24,7 @@ import backtype.storm.elasticity.scheduler.ShardReassignmentPlan;
 import backtype.storm.elasticity.state.*;
 import backtype.storm.elasticity.utils.FirstFitDoubleDecreasing;
 import backtype.storm.elasticity.utils.Histograms;
-import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
+import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultDeserializer;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultSerializer;
 import backtype.storm.elasticity.utils.timer.SmartTimer;
@@ -53,7 +52,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -331,6 +329,7 @@ public class ElasticTaskHolder {
         final Thread sendingThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                ArrayList<ITaskMessage> drainer = new ArrayList<>();
                 while (true) {
                     Object object = null;
                     try {
@@ -339,12 +338,11 @@ public class ElasticTaskHolder {
                         Map<String, ArrayList<TaskMessage>> iConnectionNameToTaskMessageArray = new HashMap<>();
                         Map<String, IConnection> connectionNameToIConnection = new HashMap<>();
 
-                        ArrayList<ITaskMessage> drainer = new ArrayList<>();
                         object = _sendingQueue.take();
                         ITaskMessage firstMessage = (ITaskMessage) object;
                         drainer.add(firstMessage);
-                        _sendingQueue.drainTo(drainer, 2048);
-//                        _sendingQueue.drainTo(drainer, 2048);
+                        _sendingQueue.drainTo(drainer, 4096 * 2);
+//                        _sendingQueue.drainTo(drainer);
 
                         for(ITaskMessage message: drainer) {
     //                        System.out.println("sending...");
@@ -495,7 +493,9 @@ public class ElasticTaskHolder {
         sendingThread.start();
         System.out.println("sending thread is created!");
 
-        ThreadUtilizationMonitor.instance().registerMonitor(sendingThread.getId(), "Sending Thread", -1, 5);
+        MonitorUtils.instance().registerThreadMonitor(sendingThread.getId(), "Sending Thread", 0.2, 5);
+        MonitorUtils.instance().registerQueueMonitor(_sendingQueue, "hold sending queue",
+                Config.ElasticTaskHolderOutputQueueCapacity, null, 0.7, 5);
 //        createThreadUtilizationMonitoringThread(sendingThread.getId(), "Sending Thread", -1);
 
     }
@@ -631,7 +631,7 @@ public class ElasticTaskHolder {
         receivingThread.start();
 //        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", -1);
 //        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", 0.7);
-        ThreadUtilizationMonitor.instance().registerMonitor(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", -1, 5);
+        MonitorUtils.instance().registerThreadMonitor(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", 0.8, 5);
     }
 
 
@@ -658,7 +658,7 @@ public class ElasticTaskHolder {
                             Tuple remoteTuple = tupleDeserializer.deserialize(message.message());
                             try {
                                 ElasticRemoteTaskExecutor elasticRemoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(taskid);
-                                LinkedBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
+                                ArrayBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
                                 queue.put(remoteTuple);
                             } catch (NullPointerException e) {
                                 System.out.println(String.format("TaskId: %d, ", taskid));
@@ -683,7 +683,7 @@ public class ElasticTaskHolder {
 //                                System.out.println("A remote tuple " + remoteTuple._taskId + "." + remoteTuple._route + " (sid = " + remoteTuple.sid + ") is received!\n");
                                 ((TupleImpl)remoteTuple._tuple).setContext(_workerTopologyContext);
                                 ElasticRemoteTaskExecutor elasticRemoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(message.task());
-                                LinkedBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
+                                ArrayBlockingQueue<Object> queue = elasticRemoteTaskExecutor.get_inputQueue();
                                 queue.put(remoteTuple._tuple);
 //                                System.out.println("handled!");
 //                                LOG.debug("A remote tuple is added to the queue!\n");

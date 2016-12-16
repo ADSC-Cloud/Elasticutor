@@ -11,7 +11,7 @@ import backtype.storm.elasticity.metrics.ThroughputForRoutes;
 import backtype.storm.elasticity.routing.*;
 import backtype.storm.elasticity.utils.GlobalHashFunction;
 import backtype.storm.elasticity.utils.KeyFrequencySampler;
-import backtype.storm.elasticity.utils.ThreadUtilizationMonitor;
+import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.tuple.Tuple;
 
 import java.io.Serializable;
@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+
 import backtype.storm.elasticity.state.*;
 import backtype.storm.utils.Utils;
 
@@ -136,9 +136,6 @@ public class ElasticTasks implements Serializable {
 
         final long signature = _routingTable.getSigniture();
         RoutingTable.Route route = _routingTable.route(key);
-//        int originalRoute = route;
-//        if(signature != _routingTable.getSigniture() && route == RoutingTable.remote)
-//            originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_taskID, route.originalRoute);
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_taskID)) {
@@ -146,12 +143,9 @@ public class ElasticTasks implements Serializable {
             // The routing table may be updated during the pausing phase, so we should recompute the route.
             if (paused && signature != _routingTable.getSigniture()) {
                 route = _routingTable.route(key);
-//                if (route == RoutingTable.remote)
-//                    originalRoute = ((PartialHashingRouting) _routingTable).getOrignalRoute(key);
             }
 
             if (route.route == RoutingTable.remote) {
-//                int originalRoute = ((PartialHashingRouting)_routingTable).getOrignalRoute(key);
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticTasks!\n", key);
                     str += "target route is " + route.originalRoute + "\n";
@@ -269,7 +263,7 @@ public class ElasticTasks implements Serializable {
         Thread newThread = new Thread(query);
         newThread.start();
         _queryThreads.put(i, newThread);
-        ThreadUtilizationMonitor.instance().registerMonitor(newThread.getId(), "query route " + i, -1, 5);
+//        MonitorUtils.instance().registerThreadMonitor(newThread.getId(), "query route " + i, -1, 5);
 //        System.out.println("created elastic worker threads for route "+i);
         System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
         ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route "+i);
@@ -279,22 +273,6 @@ public class ElasticTasks implements Serializable {
     public void createAndLaunchElasticTasksForGivenRoute(int i) {
         createElasticTasksForGivenRoute(i);
         launchElasticTasksForGivenRoute(i);
-//        if(!_routingTable.getRoutes().contains(i)) {
-//            System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
-//            return;
-//        }
-//        ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
-//        _queues.put(i, inputQueue);
-//
-//        QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
-//        _queryRunnables.put(i, query);
-//        Thread newThread = new Thread(query);
-//        newThread.start();
-//        ThreadUtilizationMonitor.instance().registerMonitor(newThread.getId(), "query route " + i, -1, 5);
-//        _queryThreads.put(i, newThread);
-//        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _taskID, newThread.getId(), i, _elasticOutputCollector));
-////        System.out.println("created elastic worker threads for route "+i);
-//        ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_taskID, i);
     }
 
     /**
@@ -451,7 +429,7 @@ public class ElasticTasks implements Serializable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        ThreadUtilizationMonitor.instance().unregister(_queryThreads.get(route).getId());
+        MonitorUtils.instance().unregister(_queryThreads.get(route).getId());
 
         _queryRunnables.remove(route);
         _queryThreads.remove(route);

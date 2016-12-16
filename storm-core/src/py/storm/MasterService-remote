@@ -62,6 +62,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print('  void logOnMaster(string fro, string msg)')
   print('  string getBucketDistributionString(i32 taskid)')
   print('  string getExecutorStatus(i32 taskid)')
+  print('  string queryClusterResource()')
   print('')
   sys.exit(0)
 
@@ -237,6 +238,12 @@ elif cmd == 'getExecutorStatus':
     print('getExecutorStatus requires 1 args')
     sys.exit(1)
   pp.pprint(client.getExecutorStatus(eval(args[0]),))
+
+elif cmd == 'queryClusterResource':
+  if len(args) != 0:
+    print('queryClusterResource requires 0 args')
+    sys.exit(1)
+  pp.pprint(client.queryClusterResource())
 
 else:
   print('Unrecognized method %s' % cmd)
