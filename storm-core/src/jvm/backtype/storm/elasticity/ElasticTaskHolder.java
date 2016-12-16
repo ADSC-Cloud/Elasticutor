@@ -178,7 +178,7 @@ public class ElasticTaskHolder {
         try {
             System.out.println("Add exceptions to the routing table...");
             /* set exceptions for existing routing table and get the complement routing table */
-            PartialHashingRouting complementHashingRouting = _bolts.get(taskid).get_elasticTasks().addExceptionForHashRouting(route, _sendingQueue);
+            PartialHashingRouting complementHashingRouting = _bolts.get(taskid).get_elasticExecutor().addExceptionForHashRouting(route, _sendingQueue);
             SmartTimer.getInstance().stop("SubtaskMigrate", "rerouting 1");
             SmartTimer.getInstance().start("SubtaskMigrate", "state construction");
     //        if(complementHashingRouting==null) {
@@ -186,18 +186,18 @@ public class ElasticTaskHolder {
     //        }
 
             System.out.println("Constructing the instance of ElasticTask for remote execution...");
-            /* construct the instance of ElasticTasks to be executed remotely */
-            ElasticTasks existingElasticTasks = _bolts.get(taskid).get_elasticTasks();
-            ElasticTasks remoteElasticTasks = new ElasticTasks(existingElasticTasks.get_bolt(),existingElasticTasks.get_taskID());
-            remoteElasticTasks.setRemoteElasticTasks();
-            remoteElasticTasks.set_routingTable(complementHashingRouting);
+            /* construct the instance of ElasticExecutor to be executed remotely */
+            ElasticExecutor existingElasticExecutor = _bolts.get(taskid).get_elasticExecutor();
+            ElasticExecutor remoteElasticExecutor = new ElasticExecutor(existingElasticExecutor.get_bolt(),
+                    existingElasticExecutor.get_id(), complementHashingRouting);
+            remoteElasticExecutor.setRemoteElasticTasks();
 
 //            System.out.println("cleaning pending tuples for state consistency!");
-//            existingElasticTasks.makesSureNoPendingTuples(route);
+//            existingElasticExecutor.makesSureNoPendingTuples(route);
 
             System.out.println("Packing the involved state...");
             long start = System.currentTimeMillis();
-            KeyValueState existingState = existingElasticTasks.get_bolt().getState();
+            KeyValueState existingState = existingElasticExecutor.get_bolt().getState();
 
 
             KeyValueState state = new KeyValueState();
@@ -226,7 +226,7 @@ public class ElasticTaskHolder {
 //            sendMessageToMaster((System.currentTimeMillis() - start) + "ms to prepare the state to migrate!");
             System.out.println("State for migration is ready!");
 //            sendMessageToMaster("State is ready for migration!");
-            return new ElasticTaskMigrationMessage(remoteElasticTasks, _port, state);
+            return new ElasticTaskMigrationMessage(remoteElasticExecutor, _port, state);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -244,27 +244,27 @@ public class ElasticTaskHolder {
 //        _remoteTasks.put(message._elasticTask.get_taskID(), message._elasticTask);
 
 
-        if(!_originalTaskIdToRemoteTaskExecutor.containsKey(message._elasticTask.get_taskID())) {
+        if(!_originalTaskIdToRemoteTaskExecutor.containsKey(message._elasticTask.get_id())) {
             //This is the first RemoteTasks assigned to this host.
 //            if(!_originalTaskIdToConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client iConnection = (Client)_context.connect(message._ip + ":" + message._port + "-" + message._elasticTask.get_taskID(), message._ip, message._port);
+                Client iConnection = (Client)_context.connect(message._ip + ":" + message._port + "-" + message._elasticTask.get_id(), message._ip, message._port);
                 while(iConnection.status()!=Client.Status.Ready)
                     Utils.sleep(1);
-                _originalTaskIdToConnection.put(message._elasticTask.get_taskID(), iConnection);
+                _originalTaskIdToConnection.put(message._elasticTask.get_id(), iConnection);
 //            }
 
 //            if(!_originalTaskIdToPriorityConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client prioritizedConnection = (Client)_context.connect(message._ip + ":" + (message._port + 5) + "-" + message._elasticTask.get_taskID(), message._ip, message._port + 5);
+                Client prioritizedConnection = (Client)_context.connect(message._ip + ":" + (message._port + 5) + "-" + message._elasticTask.get_id(), message._ip, message._port + 5);
                 while(prioritizedConnection.status()!=Client.Status.Ready)
                     Utils.sleep(1);
-                _originalTaskIdToPriorityConnection.put(message._elasticTask.get_taskID(), prioritizedConnection);
+                _originalTaskIdToPriorityConnection.put(message._elasticTask.get_id(), prioritizedConnection);
 //            }
 
 //            if(!_originalTaskIdToExecutorResultConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client remoteExecutionResultConnection = (Client) _context.connect(message._ip + ":" + (message._port + 10) + "-" + message._elasticTask.get_taskID(), message._ip, message._port + 10);
+                Client remoteExecutionResultConnection = (Client) _context.connect(message._ip + ":" + (message._port + 10) + "-" + message._elasticTask.get_id(), message._ip, message._port + 10);
                 while(remoteExecutionResultConnection.status()!=Client.Status.Ready)
                     Utils.sleep(1);
-                _originalTaskIdToExecutorResultConnection.put(message._elasticTask.get_taskID(), remoteExecutionResultConnection);
+                _originalTaskIdToExecutorResultConnection.put(message._elasticTask.get_id(), remoteExecutionResultConnection);
 //            }
 
             System.out.println("Connected with original Task Holders");
@@ -278,15 +278,15 @@ public class ElasticTaskHolder {
 
             System.out.println("ElasticRemoteTaskExecutor is created!");
 
-            _originalTaskIdToRemoteTaskExecutor.put(message._elasticTask.get_taskID(), remoteTaskExecutor);
+            _originalTaskIdToRemoteTaskExecutor.put(message._elasticTask.get_id(), remoteTaskExecutor);
 
-            _taskIdToRouteToSendingWaitingSemaphore.put(message._elasticTask.get_taskID(), new ConcurrentHashMap<Integer, Semaphore>());
+            _taskIdToRouteToSendingWaitingSemaphore.put(message._elasticTask.get_id(), new ConcurrentHashMap<Integer, Semaphore>());
 
             System.out.println("ElasticRemoteTaskExecutor is added to the map!");
             remoteTaskExecutor.prepare(message.state);
             System.out.println("ElasticRemoteTaskExecutor is prepared!");
 //            remoteTaskExecutor.createProcessingThread();
-//            Slave.getInstance().logOnMaster(remoteTaskExecutor._elasticTasks.get_routingTable().toString());
+//            Slave.getInstance().logOnMaster(remoteTaskExecutor._elasticExecutor.get_routingTable().toString());
 
             System.out.println("Remote Task Executor is launched");
         } else {
@@ -294,8 +294,8 @@ public class ElasticTaskHolder {
             //and create processing thread accordingly.
             System.out.println("integrate new subtask into existing remote task executor!");
 
-            ElasticRemoteTaskExecutor remoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(message._elasticTask.get_taskID());
-            remoteTaskExecutor._elasticTasks.get_bolt().getState().update(message.state);
+            ElasticRemoteTaskExecutor remoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(message._elasticTask.get_id());
+            remoteTaskExecutor._elasticExecutor.get_bolt().getState().update(message.state);
 //            for(Object key: message.state.getState().keySet()) {
 //                System.out.println("State <"+key+", "+ message.state.getValueByKey(key)+"> has been restored!");
 //            }
@@ -305,7 +305,7 @@ public class ElasticTaskHolder {
 
         }
 
-        ElasticTaskMigrationConfirmMessage confirmMessage = new ElasticTaskMigrationConfirmMessage(message._elasticTask.get_taskID(), _slaveActor.getIp() , _port, message._elasticTask.get_routingTable().getRoutes() );
+        ElasticTaskMigrationConfirmMessage confirmMessage = new ElasticTaskMigrationConfirmMessage(message._elasticTask.get_id(), _slaveActor.getIp() , _port, message._elasticTask.get_routingTable().getRoutes() );
         return confirmMessage;
 
         } catch (Exception e) {
@@ -791,10 +791,10 @@ public class ElasticTaskHolder {
     private void makeSureTargetRouteNoPendingTuples(int taskId, int routeId) {
         try {
         if(_bolts.containsKey(taskId)) {
-            if(_bolts.get(taskId).get_elasticTasks().get_routingTable().getRoutes().contains(routeId)) {
+            if(_bolts.get(taskId).get_elasticExecutor().get_routingTable().getRoutes().contains(routeId)) {
 //                sendMessageToMaster("Waiting for pending tuples to be cleaned!");
                 System.out.println(String.format("Waiting for pending tuples of %d.%d to be cleaned!", taskId, routeId));
-                _bolts.get(taskId).get_elasticTasks().makesSureNoPendingTuples(routeId);
+                _bolts.get(taskId).get_elasticExecutor().makesSureNoPendingTuples(routeId);
                 System.out.println(String.format("Waiting tuples of %d.%d are cleaned!",taskId, routeId));
 //                sendMessageToMaster("Waiting tuples are cleaned!");
             } else {
@@ -813,7 +813,7 @@ public class ElasticTaskHolder {
             sendMessageToMaster(e.getMessage());
         }
 
-//        _bolts.get(taskId).get_elasticTasks().get_routingTable().getRoutes().contains(routeId)
+//        _bolts.get(taskId).get_elasticExecutor().get_routingTable().getRoutes().contains(routeId)
 //
 //        if(_originalTaskIdToConnection.containsKey(taskId)) {
 //        }
@@ -859,7 +859,7 @@ public class ElasticTaskHolder {
             sendMessageToMaster("Task " + token.taskId + " does not exist!");
         }
         System.out.println("to handle handleCleanPendingTupleToken");
-        _originalTaskIdToRemoteTaskExecutor.get(token.taskId)._elasticTasks.makesSureNoPendingTuples(token.routeId);
+        _originalTaskIdToRemoteTaskExecutor.get(token.taskId)._elasticExecutor.makesSureNoPendingTuples(token.routeId);
         System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.taskId, token.routeId));
         PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.taskId, token.routeId);
         _originalTaskIdToPriorityConnection.get(token.taskId).send(token.taskId, SerializationUtils.serialize(message));
@@ -869,9 +869,9 @@ public class ElasticTaskHolder {
     private KeyValueState getState(int taskId) {
         KeyValueState ret = null;
         if(_bolts.containsKey(taskId)) {
-            ret = _bolts.get(taskId).get_elasticTasks().get_bolt().getState();
+            ret = _bolts.get(taskId).get_elasticExecutor().get_bolt().getState();
             if(ret == null)
-                sendMessageToMaster("_bolts.get(taskId).get_elasticTasks().get_bolt().getState() is null!");
+                sendMessageToMaster("_bolts.get(taskId).get_elasticExecutor().get_bolt().getState() is null!");
         }
         else if (_originalTaskIdToRemoteTaskExecutor.containsKey(taskId)) {
             ret = _originalTaskIdToRemoteTaskExecutor.get(taskId)._bolt.getState();
@@ -891,7 +891,7 @@ public class ElasticTaskHolder {
     private BalancedHashRouting getBalancedHashRoutingFromOriginalBolt(int taskid) {
         if(_bolts.containsKey(taskid)) {
 
-                RoutingTable routingTable = _bolts.get(taskid).get_elasticTasks().get_routingTable();
+                RoutingTable routingTable = _bolts.get(taskid).get_elasticExecutor().get_routingTable();
                 if(routingTable instanceof BalancedHashRouting) {
                     return (BalancedHashRouting)routingTable;
                 } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof BalancedHashRouting)) {
@@ -906,7 +906,7 @@ public class ElasticTaskHolder {
     private BalancedHashRouting getBalancedHashRoutingFromRemoteBolt(int taskid) {
         if(_originalTaskIdToRemoteTaskExecutor.containsKey(taskid)) {
 
-            RoutingTable routingTable = _originalTaskIdToRemoteTaskExecutor.get(taskid)._elasticTasks.get_routingTable();
+            RoutingTable routingTable = _originalTaskIdToRemoteTaskExecutor.get(taskid)._elasticExecutor.get_routingTable();
             if(routingTable instanceof BalancedHashRouting) {
                 return (BalancedHashRouting)routingTable;
             } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof BalancedHashRouting)) {
@@ -960,9 +960,9 @@ public class ElasticTaskHolder {
 
             if(!type.equals("hash"))
                 throw new RoutingTypeNotSupportedException("Only support hash routing now!");
-            _bolts.get(taskid).get_elasticTasks().setHashRouting(numberOfRouting);
+            _bolts.get(taskid).get_elasticExecutor().setHashRouting(numberOfRouting);
         }
-        _bolts.get(taskid).get_elasticTasks().get_routingTable().enableRoutingDistributionSampling();
+        _bolts.get(taskid).get_elasticExecutor().get_routingTable().enableRoutingDistributionSampling();
         _slaveActor.sendMessageToMaster("New RoutingTable has been created!");
         System.out.println("RoutingTable has been created");
 
@@ -974,22 +974,18 @@ public class ElasticTaskHolder {
             throw new TaskNotExistingException(taskid);
         }
 
-        _bolts.get(taskid)._keyBucketSampler.clear();
-        _bolts.get(taskid)._keyBucketSampler.enable();
-//        _slaveActor.sendMessageToMaster("It will take " + Config.CreateBalancedHashRoutingSamplingTimeInSecs + "seconds to sample the distribution of the input tuples on the key domain.");
-        Utils.sleep(Config.CreateBalancedHashRoutingSamplingTimeInSecs * 1000);
-        _bolts.get(taskid)._keyBucketSampler.disable();
-//        _slaveActor.sendMessageToMaster("Sampling completes");
+        Long[] buckets = new Long[Config.NumberOfShard];
+        for (int i = 0; i < buckets.length; i++) {
+            buckets[i] = 1L;
+        }
 
-        FirstFitDoubleDecreasing firstFitDoubleDecreasing = new FirstFitDoubleDecreasing(Arrays.asList(_bolts.get(taskid)._keyBucketSampler.buckets),numberOfRouting);
+        FirstFitDoubleDecreasing firstFitDoubleDecreasing = new FirstFitDoubleDecreasing(Arrays.asList(buckets),
+                numberOfRouting);
 
         final int result = firstFitDoubleDecreasing.getResult();
         if(result == numberOfRouting) {
 //            _slaveActor.sendMessageToMaster(firstFitDoubleDecreasing.toString());
-            _bolts.get(taskid).get_elasticTasks().setHashBalancedRouting(numberOfRouting, firstFitDoubleDecreasing.getBucketToPartitionMap());
-
-
-
+            _bolts.get(taskid).get_elasticExecutor().setHashBalancedRouting(numberOfRouting, firstFitDoubleDecreasing.getBucketToPartitionMap());
         } else {
             _slaveActor.sendMessageToMaster("Failed to partition the buckets!");
         }
@@ -1002,7 +998,7 @@ public class ElasticTaskHolder {
         if(!_bolts.containsKey(taskid)) {
             throw new TaskNotExistingException(taskid);
         }
-        RoutingTable routingTable = _bolts.get(taskid).get_elasticTasks().get_routingTable();
+        RoutingTable routingTable = _bolts.get(taskid).get_elasticExecutor().get_routingTable();
         if(!(routingTable instanceof PartialHashingRouting)) {
             throw new RoutingTypeNotSupportedException("Can only withdraw remote tasks for PartialHashingRouting!");
         }
@@ -1014,7 +1010,7 @@ public class ElasticTaskHolder {
             throw new InvalidRouteException("Route " + route + " is not in exception list");
         }
 
-        _bolts.get(taskid).get_elasticTasks().addValidRoute(route);
+        _bolts.get(taskid).get_elasticExecutor().addValidRoute(route);
         System.out.println("Route " + route + " has been added into the routing table!");
         sendFinalTuple(taskid, route);
 
@@ -1031,7 +1027,7 @@ public class ElasticTaskHolder {
             System.out.println("Remote state arrives!");
 
             System.out.println("launch the thread for "+taskid+"."+route+".");
-            _bolts.get(taskid).get_elasticTasks().launchElasticTasksForGivenRoute(route);
+            _bolts.get(taskid).get_elasticExecutor().launchElasticTasksForGivenRoute(route);
             System.out.println("Remote " + taskid + "." + route + "has been withdrawn!");
             _slaveActor.sendMessageToMaster("Remote " + taskid + "." + route + "has been withdrawn!");
             SubtaskWithdrawTimer.getInstance().terminated();
@@ -1058,7 +1054,7 @@ public class ElasticTaskHolder {
 
     /**
      * First terminate the query thread and clear the associated resources until all the local tuples for the route has been processed
-     * Then get the state for the route and send the state back to the original ElasticTasks.
+     * Then get the state for the route and send the state back to the original ElasticExecutor.
      * Finally, remove the route balls the routingTable.
      * @param taskid the taskid
      * @param route the route to remove
@@ -1066,13 +1062,13 @@ public class ElasticTaskHolder {
     private void terminateRemoteRoute(int taskid, int route) {
         //terminate the thread and cleanup the resources.
         ElasticRemoteTaskExecutor remoteTaskExecutor = _originalTaskIdToRemoteTaskExecutor.get(taskid);
-        remoteTaskExecutor._elasticTasks.terminateGivenQuery(route);
+        remoteTaskExecutor._elasticExecutor.terminateGivenQuery(route);
 
         /**
          * Ideally, remote task executor should be removed when it does not have any task.
          * The removal operation is pending now, as there is a well hidden bug caused by the removal.
          */
-        if(remoteTaskExecutor._elasticTasks.get_routingTable().getRoutes().size()==0) {
+        if(remoteTaskExecutor._elasticExecutor.get_routingTable().getRoutes().size()==0) {
             System.out.println("Removing the elastic task...");
             removeEmptyRemoteTaskExecutor(taskid);
             System.out.println("Removed the elastic task...");
@@ -1090,14 +1086,8 @@ public class ElasticTaskHolder {
             e.printStackTrace();
         }
 
-        ((PartialHashingRouting)remoteTaskExecutor._elasticTasks.get_routingTable()).addExceptionRoute(route);
+        ((PartialHashingRouting)remoteTaskExecutor._elasticExecutor.get_routingTable()).addExceptionRoute(route);
         System.out.println("Route "+ route+ " has been removed from the routing table");
-
-
-
-
-
-
     }
 
     private void removeEmptyRemoteTaskExecutor(int taskid) {
@@ -1135,8 +1125,8 @@ public class ElasticTaskHolder {
         if(!_bolts.containsKey(taskid)) {
             throw new TaskNotExistingException("Task " + taskid + " does not exist!");
         } else {
-//            return _bolts.get(taskid).get_elasticTasks()._sample.getDistribution();
-            return _bolts.get(taskid).get_elasticTasks().get_routingTable().getRoutingDistribution();
+//            return _bolts.get(taskid).get_elasticExecutor()._sample.getDistribution();
+            return _bolts.get(taskid).get_elasticExecutor().get_routingTable().getRoutingDistribution();
         }
     }
 
@@ -1144,7 +1134,7 @@ public class ElasticTaskHolder {
         if(!_bolts.containsKey(taskid)) {
             throw new TaskNotExistingException("task " + taskid + "does not exist!");
         } else {
-            return _bolts.get(taskid).get_elasticTasks().get_routingTable();
+            return _bolts.get(taskid).get_elasticExecutor().get_routingTable();
         }
     }
 
@@ -1169,11 +1159,11 @@ public class ElasticTaskHolder {
             throw new RoutingTypeNotSupportedException("ReassignHashBucketToRoute only applies on BalancedHashRouting or PartialHashRouting with a internal BalancedHashRouting");
         }
 
-        BalancedHashRouting balancedHashRouting;// = (BalancedHashRouting)_bolts.get(taskid).get_elasticTasks().get_routingT  
-        if(_bolts.get(taskid).get_elasticTasks().get_routingTable() instanceof BalancedHashRouting) {
-            balancedHashRouting = (BalancedHashRouting)_bolts.get(taskid).get_elasticTasks().get_routingTable();
+        BalancedHashRouting balancedHashRouting;// = (BalancedHashRouting)_bolts.get(taskid).get_elasticExecutor().get_routingT
+        if(_bolts.get(taskid).get_elasticExecutor().get_routingTable() instanceof BalancedHashRouting) {
+            balancedHashRouting = (BalancedHashRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable();
         } else {
-            balancedHashRouting = (BalancedHashRouting)((PartialHashingRouting)_bolts.get(taskid).get_elasticTasks().get_routingTable()).getOriginalRoutingTable();
+            balancedHashRouting = (BalancedHashRouting)((PartialHashingRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable()).getOriginalRoutingTable();
         }
 
         if(!(balancedHashRouting.getRoutes().contains(orignalRoute))) {
@@ -1365,7 +1355,7 @@ public class ElasticTaskHolder {
             System.out.println("Task " + taskId + "does not exist!");
             return null;
         }
-        RoutingTable routingTable = _bolts.get(taskId).get_elasticTasks().get_routingTable();
+        RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
         return ((BalancedHashRouting)RoutingTableUtils.getBalancecHashRouting(routingTable)).getBucketsDistribution();
     }
 
@@ -1378,14 +1368,14 @@ public class ElasticTaskHolder {
         if(!_bolts.containsKey(taskId))
             throw new TaskNotExistingException(String.format("Task %d does not exist or is not running on %s", taskId, workerName));
 
-        if(!RoutingTableUtils.getOriginalRoutes(_bolts.get(taskId).get_elasticTasks().get_routingTable()).contains(routeId))
+        if(!RoutingTableUtils.getOriginalRoutes(_bolts.get(taskId).get_elasticExecutor().get_routingTable()).contains(routeId))
             throw new InvalidRouteException(routeId);
 
         if(targetHost.equals(routeIdToRemoteHost.get(new RouteId(taskId, routeId))))
             throw new RuntimeException("Cannot migrate " + taskId + "." + routeId + ", because the task is already running on the host ");
 
 
-        if(_bolts.containsKey(taskId) && _bolts.get(taskId).get_elasticTasks().get_routingTable().getRoutes().contains(routeId)) {
+        if(_bolts.containsKey(taskId) && _bolts.get(taskId).get_elasticExecutor().get_routingTable().getRoutes().contains(routeId)) {
             if(!workerLogicalName.equals(targetHost)) {
                 _slaveActor.sendMessageToMaster("========== Migration from local to remote ========= " + routeName);
                 System.out.println("========== Migration from local to remote ========= " + routeName);
@@ -1476,7 +1466,7 @@ public class ElasticTaskHolder {
 
             SmartTimer.getInstance().start("Subtask Level Load Balancing", "Prepare");
 
-            RoutingTable routingTable = _bolts.get(taskId).get_elasticTasks().get_routingTable();
+            RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
             BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
@@ -1577,7 +1567,7 @@ public class ElasticTaskHolder {
             if(!_bolts.containsKey(taskId)) {
                 throw new TaskNotExistingException(taskId);
             }
-            RoutingTable routingTable = _bolts.get(taskId).get_elasticTasks().get_routingTable();
+            RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
             BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
@@ -1649,7 +1639,7 @@ public class ElasticTaskHolder {
             if(_taskidRouteToConnection.containsKey(taskId + "." + targetSubtaskId)){
                 withdrawRemoteElasticTasks(taskId, targetSubtaskId);
             }
-            _bolts.get(taskId).get_elasticTasks().terminateGivenQuery(targetSubtaskId);
+            _bolts.get(taskId).get_elasticExecutor().terminateGivenQuery(targetSubtaskId);
             SmartTimer.getInstance().stop("Scaling In Subtask", "Termination");
 
             SmartTimer.getInstance().start("Scaling In Subtask", "update routing table");
@@ -1683,7 +1673,7 @@ public class ElasticTaskHolder {
             if(!_bolts.containsKey(taskId)) {
                 throw new TaskNotExistingException(taskId);
             }
-            RoutingTable routingTable = _bolts.get(taskId).get_elasticTasks().get_routingTable();
+            RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
             BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
@@ -1698,7 +1688,7 @@ public class ElasticTaskHolder {
 
             int newSubtaskId = routingTable.scalingOut();
 
-            _bolts.get(taskId).get_elasticTasks().createAndLaunchElasticTasksForGivenRoute(newSubtaskId);
+            _bolts.get(taskId).get_elasticExecutor().createAndLaunchElasticTasksForGivenRoute(newSubtaskId);
 
             // so far, a new, empty subtask is create. The next step is to move some shards from existing subtasks.
 
@@ -1809,8 +1799,8 @@ public class ElasticTaskHolder {
                         Thread.sleep(1000);
 
                         for (int remoteTaskId : _originalTaskIdToRemoteTaskExecutor.keySet()) {
-                            ExecutionLatencyForRoutes latencyForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticTasks.getExecutionLatencyForRoutes();
-                            ThroughputForRoutes throughputForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticTasks.getThroughputForRoutes();
+                            ExecutionLatencyForRoutes latencyForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticExecutor.getExecutionLatencyForRoutes();
+                            ThroughputForRoutes throughputForRoutes = _originalTaskIdToRemoteTaskExecutor.get(remoteTaskId)._elasticExecutor.getThroughputForRoutes();
                             MetricsForRoutesMessage message = new MetricsForRoutesMessage(remoteTaskId, latencyForRoutes, throughputForRoutes);
 
                             message.setTimeStamp(Calendar.getInstance().getTime().toString());
@@ -1818,8 +1808,8 @@ public class ElasticTaskHolder {
 //                            _sendingQueue.put(message);
                         }
                         for (int taskId : _bolts.keySet()) {
-                            ExecutionLatencyForRoutes latencyForRoutes = _bolts.get(taskId).get_elasticTasks().getExecutionLatencyForRoutes();
-                            ThroughputForRoutes throughputForRoutes = _bolts.get(taskId).get_elasticTasks().getThroughputForRoutes();
+                            ExecutionLatencyForRoutes latencyForRoutes = _bolts.get(taskId).get_elasticExecutor().getExecutionLatencyForRoutes();
+                            ThroughputForRoutes throughputForRoutes = _bolts.get(taskId).get_elasticExecutor().getThroughputForRoutes();
                             _bolts.get(taskId).getMetrics().updateLatency(latencyForRoutes);
                             _bolts.get(taskId).getMetrics().updateThroughput(throughputForRoutes);
 
@@ -1828,7 +1818,7 @@ public class ElasticTaskHolder {
 
                             // get state size;
                             long stateSize = 0;
-                            KeyValueState state = _bolts.get(taskId).get_elasticTasks().get_bolt().getState();
+                            KeyValueState state = _bolts.get(taskId).get_elasticExecutor().get_bolt().getState();
                             if (state != null)
                                 stateSize = state.getStateSize();
 
@@ -1895,7 +1885,7 @@ public class ElasticTaskHolder {
         if(!_bolts.containsKey(taskId))
             return String.format("Task %d does not exist on %s", taskId, Slave.getInstance().getLogicalName());
         String ret = String.format("Task %d:\n", taskId);
-        List<Integer> routes = RoutingTableUtils.getOriginalRoutes(_bolts.get(taskId).get_elasticTasks().get_routingTable());
+        List<Integer> routes = RoutingTableUtils.getOriginalRoutes(_bolts.get(taskId).get_elasticExecutor().get_routingTable());
         for(Integer route: routes) {
             ret += String.format("Route %d: %s\n", route, routeIdToRemoteHost.get(new RouteId(taskId, route)));
         }

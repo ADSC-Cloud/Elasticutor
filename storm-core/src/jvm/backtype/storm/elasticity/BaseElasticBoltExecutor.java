@@ -54,7 +54,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
     private transient int _taskId;
 
-    private transient ElasticTasks _elasticTasks;
+    private transient ElasticExecutor _elasticExecutor;
     private transient ElasticTaskHolder _holder;
 
     private transient RateTracker _inputRateTracker;
@@ -63,8 +63,6 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     private transient RateTracker _outputRateTracker;
 
     private transient ElasticExecutorMetrics metrics;
-
-    public transient KeyBucketSampler _keyBucketSampler;
 
     private transient int tupleLengthSampleEveryNTuples;
 
@@ -165,12 +163,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         _originalCollector = collector;
         _resultHandleThread = new Thread(new ResultHandler()) ;
         _resultHandleThread.start();
-//        _elasticTasks = new ElasticTasks(_bolt);
-//        _elasticTasks.prepare(_outputCollector);
+//        _elasticExecutor = new ElasticExecutor(_bolt);
+//        _elasticExecutor.prepare(_outputCollector);
         _taskId = context.getThisTaskId();
-        _elasticTasks = ElasticTasks.createHashRouting(1,_bolt,_taskId, _outputCollector);
+        _elasticExecutor = ElasticExecutor.createHashRouting(1,_bolt,_taskId, _outputCollector);
 //        createTest();
-//        _elasticTasks = ElasticTasks.createVoidRouting(_bolt, _taskId, _outputCollector);
+//        _elasticExecutor = ElasticExecutor.createVoidRouting(_bolt, _taskId, _outputCollector);
         _inputRateTracker = new RateTracker(3000, 5);
         _outputRateTracker = new RateTracker(3000, 5);
         tupleLengthSampleEveryNTuples = (int) (1 / Config.tupleLengthSampleRate);
@@ -188,7 +186,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         if(_holder!=null) {
             _holder.registerElasticBolt(this, _taskId);
         }
-        _elasticTasks.get_routingTable().enableRoutingDistributionSampling();
+        _elasticExecutor.get_routingTable().enableRoutingDistributionSampling();
     }
 
     private boolean isSaturated() {
@@ -214,7 +212,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                                     inputTupleLengthHistory.poll();
                                 }
                             }
-                            if (!_elasticTasks.tryHandleTuple(input, key)) {
+                            if (!_elasticExecutor.tryHandleTuple(input, key)) {
                                 System.err.println("elastic task fails to process a tuple!");
                                 assert (false);
                             }
@@ -241,7 +239,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //                                            inputTupleLengthHistory.poll();
 //                                        }
 //                                    }
-//                                    if (!_elasticTasks.tryHandleTuple(input, key)) {
+//                                    if (!_elasticExecutor.tryHandleTuple(input, key)) {
 //                                        System.err.println("elastic task fails to process a tuple!");
 //                                        assert (false);
 //                                    }
@@ -260,7 +258,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         });
         dispatchThread.start();
 
-        MonitorUtils.instance().registerThreadMonitor(dispatchThread.getId(), String.format("Dispatch thread of Task %d", _elasticTasks.get_taskID()), 0.8, 5);
+        MonitorUtils.instance().registerThreadMonitor(dispatchThread.getId(), String.format("Dispatch thread of Task %d", _elasticExecutor.get_id()), 0.8, 5);
 
     }
 
@@ -292,12 +290,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //            }
 //
 //
-//            if(!_elasticTasks.tryHandleTuple(input,key)) {
+//            if(!_elasticExecutor.tryHandleTuple(input,key)) {
 //                System.err.println("elastic task fails to process a tuple!");
 //                assert(false);
 //            }
 ////
-////        if(_elasticTasks==null||!_elasticTasks.tryHandleTuple(input,key))
+////        if(_elasticExecutor==null||!_elasticExecutor.tryHandleTuple(input,key))
 ////            _bolt.execute(input, _outputCollector);
 //        _inputRateTracker.notify(1);
 //        } catch (Exception e) {
@@ -324,8 +322,8 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         return _bolt;
     }
 
-    public ElasticTasks get_elasticTasks() {
-        return _elasticTasks;
+    public ElasticExecutor get_elasticExecutor() {
+        return _elasticExecutor;
     }
 
     private void createTest() {
@@ -336,12 +334,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                     while(true) {
                         System.out.print("Started!");
                         Thread.sleep(10000);
-                        LOG.info("Before setting! P="+_elasticTasks.get_routingTable().getNumberOfRoutes());
-                        System.out.format("Before setting! P=%d", _elasticTasks.get_routingTable().getNumberOfRoutes());
-                        LOG.info("After setting! P="+_elasticTasks.get_routingTable().getNumberOfRoutes());
-                        _elasticTasks.setHashRouting(new Random().nextInt(10)+1);
-                        _holder.sendMessageToMaster("Task["+_taskId+"] changed is parallelism to "+_elasticTasks.get_routingTable().getNumberOfRoutes());
-                        System.out.format("After setting! P=%d", _elasticTasks.get_routingTable().getNumberOfRoutes());
+                        LOG.info("Before setting! P="+ _elasticExecutor.get_routingTable().getNumberOfRoutes());
+                        System.out.format("Before setting! P=%d", _elasticExecutor.get_routingTable().getNumberOfRoutes());
+                        LOG.info("After setting! P="+ _elasticExecutor.get_routingTable().getNumberOfRoutes());
+                        _elasticExecutor.setHashRouting(new Random().nextInt(10)+1);
+                        _holder.sendMessageToMaster("Task["+_taskId+"] changed is parallelism to "+ _elasticExecutor.get_routingTable().getNumberOfRoutes());
+                        System.out.format("After setting! P=%d", _elasticExecutor.get_routingTable().getNumberOfRoutes());
                     }
                 } catch (Exception e) {
 
@@ -402,7 +400,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     }
 
     public RoutingTable getCompleteRoutingTable() {
-        RoutingTable routingTable = get_elasticTasks().get_routingTable();
+        RoutingTable routingTable = get_elasticExecutor().get_routingTable();
         if(routingTable instanceof PartialHashingRouting) {
             routingTable = ((PartialHashingRouting) routingTable).getOriginalRoutingTable();
         }
@@ -423,7 +421,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             }
             double processingRatePerProcessor = 1 / (averageLatency / 1000000000.0);
 
-            RoutingTable routingTable = _elasticTasks.get_routingTable();
+            RoutingTable routingTable = _elasticExecutor.get_routingTable();
             BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
             if (balancedHashRouting == null) {
                 return 1;

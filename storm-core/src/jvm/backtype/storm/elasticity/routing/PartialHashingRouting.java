@@ -147,6 +147,12 @@ public class PartialHashingRouting implements RoutingTable {
         }
     }
 
+    public synchronized void setValidRoutes(List<Integer> routes) {
+        signature ++;
+        _validRoutes.clear();
+        addValidRoutes(routes);
+    }
+
     public String toString() {
         String ret = "PartialHashRouting: \n";
         ret += "number of original routes: " + getOriginalRoutes() + "\n";
