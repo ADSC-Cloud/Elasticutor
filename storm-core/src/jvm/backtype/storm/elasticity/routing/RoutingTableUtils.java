@@ -7,11 +7,11 @@ import java.util.List;
  */
 public class RoutingTableUtils {
 
-    public static BalancedHashRouting getBalancecHashRouting(RoutingTable routingTable) {
-        if(routingTable instanceof BalancedHashRouting) {
-            return (BalancedHashRouting)routingTable;
-        } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof BalancedHashRouting)) {
-            return (BalancedHashRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
+    public static TwoTireRouting getBalancecHashRouting(RoutingTable routingTable) {
+        if(routingTable instanceof TwoTireRouting) {
+            return (TwoTireRouting)routingTable;
+        } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof TwoTireRouting)) {
+            return (TwoTireRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
         } else
             return null;
     }

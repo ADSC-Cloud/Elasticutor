@@ -147,7 +147,7 @@ public class ElasticExecutor implements Serializable {
     }
 
     public static ElasticExecutor createHashRouting(int numberOfRoutes, BaseElasticBolt bolt, int taskID, ElasticOutputCollector collector) {
-        RoutingTable routingTable = new BalancedHashRouting(numberOfRoutes);
+        RoutingTable routingTable = new TwoTireRouting(numberOfRoutes);
         ElasticExecutor ret = new ElasticExecutor(bolt, taskID, routingTable);
         ret.prepare(collector);
         ret.createAndLaunchLocalTasks();
@@ -202,7 +202,7 @@ public class ElasticExecutor implements Serializable {
      * @return a PartialHashRouting that routes the excepted routes
      */
     public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list, ArrayBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
-        if((!(_routingTable instanceof HashingRouting))&&(!(_routingTable instanceof BalancedHashRouting))&&(!(_routingTable instanceof PartialHashingRouting))) {
+        if((!(_routingTable instanceof HashingRouting))&&(!(_routingTable instanceof TwoTireRouting))&&(!(_routingTable instanceof PartialHashingRouting))) {
             throw new RoutingTypeNotSupportedException("cannot set Exception for non-hash routing: " + _routingTable.getClass().toString());
         }
         for(int i: list) {
@@ -259,7 +259,7 @@ public class ElasticExecutor implements Serializable {
         if (numberOfRoutes < 0)
             throw new IllegalArgumentException("number of routes should be positive!");
         withdrawRoutes();
-        _routingTable = new BalancedHashRouting(hashValueToPartition, numberOfRoutes, true);
+        _routingTable = new TwoTireRouting(hashValueToPartition, numberOfRoutes, true);
 
         createAndLaunchLocalTasks();
     }

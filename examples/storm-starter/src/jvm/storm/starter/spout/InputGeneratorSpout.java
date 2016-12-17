@@ -6,6 +6,7 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
+import backtype.storm.utils.RateTracker;
 import backtype.storm.utils.Utils;
 import org.apache.commons.collections.map.AbstractHashedMap;
 import storm.starter.util.StringGenerator;
@@ -24,6 +25,8 @@ public class InputGeneratorSpout extends BaseRichSpout {
     SpoutOutputCollector outputCollector;
     transient Random random;
     long currentValue;
+
+    RateTracker rateTracker = new RateTracker(10000, 10);
 
     long startTime;
 
@@ -49,10 +52,13 @@ public class InputGeneratorSpout extends BaseRichSpout {
         outputCollector = collector;
         currentValue = 0;
         startTime = System.currentTimeMillis();
+
+
     }
 
     @Override
     public void nextTuple() {
+        rateTracker.notify(1);
         if(System.currentTimeMillis() - startTime >= warmupTime * 1000)
             Utils.sleep(1);
         outputCollector.emit(new Values(currentValue, System.currentTimeMillis()));

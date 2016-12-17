@@ -6,7 +6,7 @@ import backtype.storm.elasticity.message.taksmessage.CleanPendingTupleToken;
 import backtype.storm.elasticity.message.taksmessage.ITaskMessage;
 import backtype.storm.elasticity.message.taksmessage.PendingTupleCleanedMessage;
 import backtype.storm.elasticity.message.taksmessage.RemoteState;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
@@ -244,8 +244,8 @@ public class ElasticRemoteTaskExecutor {
         }
 
         if(RoutingTableUtils.getBalancecHashRouting(routingTable)!=null && RoutingTableUtils.getBalancecHashRouting(_elasticExecutor.get_routingTable())!=null) {
-            BalancedHashRouting exitingRouting = RoutingTableUtils.getBalancecHashRouting(_elasticExecutor.get_routingTable());
-            BalancedHashRouting incomingRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            TwoTireRouting exitingRouting = RoutingTableUtils.getBalancecHashRouting(_elasticExecutor.get_routingTable());
+            TwoTireRouting incomingRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
             exitingRouting.update(incomingRouting);
 //            Slave.getInstance().sendMessageToMaster("Balanced Hash routing is updated!");
         } else {

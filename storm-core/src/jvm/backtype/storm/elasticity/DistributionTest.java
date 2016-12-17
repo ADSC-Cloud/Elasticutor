@@ -1,15 +1,13 @@
 package backtype.storm.elasticity;
 
 
-import backtype.storm.elasticity.routing.BalancedHashRouting;
-import backtype.storm.elasticity.routing.RoutingTable;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.ShardReassignment;
 import backtype.storm.elasticity.scheduler.ShardReassignmentPlan;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -25,10 +23,8 @@ public class DistributionTest {
         int shards = 512;
         int routes = 64;
 
-        BalancedHashRouting routingTable = new BalancedHashRouting(routes);
-        BalancedHashRouting originalRoutingTable = new BalancedHashRouting(routes);
-        routingTable.enableRoutingDistributionSampling();
-        originalRoutingTable.enableRoutingDistributionSampling();
+        TwoTireRouting routingTable = new TwoTireRouting(routes);
+        TwoTireRouting originalRoutingTable = new TwoTireRouting(routes);
         while(true) {
             Thread.sleep(1000);
             System.out.println("Random: " + new Random(100).nextInt(10));

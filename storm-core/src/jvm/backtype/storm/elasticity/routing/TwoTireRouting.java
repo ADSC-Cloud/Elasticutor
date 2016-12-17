@@ -15,7 +15,7 @@ import java.util.*;
 /**
  * Created by robert on 11/26/15.
  */
-public class BalancedHashRouting implements RoutingTable {
+public class TwoTireRouting implements RoutingTable {
 
     private GlobalHashFunction hashFunction = GlobalHashFunction.getInstance();
 
@@ -29,14 +29,14 @@ public class BalancedHashRouting implements RoutingTable {
 
     transient SlideWindowKeyBucketSample sample;
 
-    public BalancedHashRouting(Map<Integer, Integer> hashValueToPartition, int numberOfRoutes) {
+    public TwoTireRouting(Map<Integer, Integer> hashValueToPartition, int numberOfRoutes) {
         this.numberOfRoutes = numberOfRoutes;
         shardToRoute = new HashMap<>();
         shardToRoute.putAll(hashValueToPartition);
         numberOfShards = hashValueToPartition.size();
     }
 
-    public BalancedHashRouting(int numberOfRoutes) {
+    public TwoTireRouting(int numberOfRoutes) {
         this.numberOfRoutes = numberOfRoutes;
         numberOfShards = Config.NumberOfShard;
         shardToRoute = new HashMap<>();
@@ -46,7 +46,7 @@ public class BalancedHashRouting implements RoutingTable {
         enableSampling();
     }
 
-    public BalancedHashRouting(Map<Integer, Integer> hashValueToPartition, int numberOfRoutes, boolean enableSample) {
+    public TwoTireRouting(Map<Integer, Integer> hashValueToPartition, int numberOfRoutes, boolean enableSample) {
         this(hashValueToPartition, numberOfRoutes);
         if(enableSample)
             enableSampling();
@@ -64,8 +64,6 @@ public class BalancedHashRouting implements RoutingTable {
             sample.recordShard(shard);
 
         final int ret = shardToRoute.get(shard);
-//        if(routeDistributionSampler != null)
-//            routeDistributionSampler.record(ret);
 
         return new Route(ret);
     }
@@ -97,11 +95,6 @@ public class BalancedHashRouting implements RoutingTable {
         return histograms;
     }
 
-    @Override
-    public synchronized void enableRoutingDistributionSampling() {
-//        routeDistributionSampler = new SlidingWindowRouteSampler(numberOfRoutes);
-//        routeDistributionSampler.enable();
-    }
 
     @Override
     public long getSigniture() {
@@ -116,15 +109,10 @@ public class BalancedHashRouting implements RoutingTable {
         shardToRoute.put(bucketid, targetRoute);
         numberOfRoutes = Math.max(targetRoute + 1, numberOfRoutes);
         signature ++;
-//        ElasticTaskHolder.instance()._slaveActor.sendMessageToMaster(bucketid + ", " + targetRoute + " is put!");
     }
 
     public synchronized String toString() {
 
-//        ArrayList<ArrayList<Integer>> routeToBuckets = new ArrayList<ArrayList<Integer>>();
-//        for(int i=0; i < numberOfRoutes; i++ ) {
-//            routeToBuckets.add(new ArrayList<Integer>());// = new ArrayList<>();
-//        }
         String ret = "Balanced Hash Routing: " + System.identityHashCode(this) + "\n";
         try {
             NumberFormat formatter = new DecimalFormat("#0.0000");
@@ -213,7 +201,7 @@ public class BalancedHashRouting implements RoutingTable {
         signature ++;
     }
 
-    public synchronized void update(BalancedHashRouting newRoute) {
+    public synchronized void update(TwoTireRouting newRoute) {
         this.numberOfRoutes = newRoute.numberOfRoutes;
         this.setBucketToRouteMapping(newRoute.getBucketToRouteMapping());
     }
@@ -243,7 +231,7 @@ public class BalancedHashRouting implements RoutingTable {
 
     public static void main(String[] args) {
         final int numberOfRoutes = 8;
-        final RoutingTable routingTable = new BalancedHashRouting(numberOfRoutes);
+        final RoutingTable routingTable = new TwoTireRouting(numberOfRoutes);
         final RateTracker rateTracker = new RateTracker(1000, 5);
 
         new Thread(new Runnable() {

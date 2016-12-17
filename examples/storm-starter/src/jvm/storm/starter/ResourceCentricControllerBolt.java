@@ -4,9 +4,7 @@ import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.elasticity.common.ShardWorkload;
 import backtype.storm.elasticity.common.SubTaskWorkload;
 import backtype.storm.elasticity.config.Config;
-import backtype.storm.elasticity.exceptions.RoutingTypeNotSupportedException;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
-import backtype.storm.elasticity.routing.RoutingTable;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.ShardReassignment;
@@ -47,7 +45,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
     Map<Integer, Long> taskToLatency;
 
-    BalancedHashRouting routingTable;
+    TwoTireRouting routingTable;
 
     List<Integer> downstreamTaskIds;
 
@@ -77,7 +75,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
         downstreamTaskIds = context.getComponentTasks(ResourceCentricZipfComputationTopology.ComputationBolt);
 
-        routingTable = new BalancedHashRouting(downstreamTaskIds.size());
+        routingTable = new TwoTireRouting(downstreamTaskIds.size());
 
         generatorTaskProgress = new long[upstreamTaskIds.size()];
 
@@ -324,17 +322,17 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
     public void scalingIn() throws TException {
 
         SmartTimer.getInstance().start("Scaling In", "Algorithm");
-        BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
-        int targetSubtaskId = balancedHashRouting.getNumberOfRoutes() -1;
-        int numberOfSubtasks = balancedHashRouting.getNumberOfRoutes();
+        int targetSubtaskId = twoTireRouting.getNumberOfRoutes() -1;
+        int numberOfSubtasks = twoTireRouting.getNumberOfRoutes();
 
         Histograms histograms = new Histograms();
         for(int taskId: taskToHistogram.keySet()) {
             histograms.merge(taskToHistogram.get(taskId));
         }
 
-        Map<Integer, Integer> shardToRoutingMapping = balancedHashRouting.getBucketToRouteMapping();
+        Map<Integer, Integer> shardToRoutingMapping = twoTireRouting.getBucketToRouteMapping();
 
         ArrayList<SubTaskWorkload> subTaskWorkloads = new ArrayList<>();
         for(int i = 0; i < numberOfSubtasks; i++) {
@@ -394,9 +392,9 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
             histograms.merge(taskToHistogram.get(taskId));
         }
 
-        BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
-        Map<Integer, Integer> shardToRoutingMapping = balancedHashRouting.getBucketToRouteMapping();
+        Map<Integer, Integer> shardToRoutingMapping = twoTireRouting.getBucketToRouteMapping();
 
         int newSubtaskId = routingTable.scalingOut();
 
@@ -556,12 +554,12 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
         Long averageLatency = getLatency();
         double performanceFactor = 1;
         try {
-            BalancedHashRouting balancedHashRouting = (BalancedHashRouting) RoutingTableUtils.getBalancecHashRouting(routingTable);
-            if(balancedHashRouting == null){
+            TwoTireRouting twoTireRouting = (TwoTireRouting) RoutingTableUtils.getBalancecHashRouting(routingTable);
+            if(twoTireRouting == null){
                 return 1;
             }
-            Histograms histograms = balancedHashRouting.getBucketsDistribution();
-            performanceFactor = ElasticScheduler.getPerformanceFactor(histograms, balancedHashRouting);
+            Histograms histograms = twoTireRouting.getBucketsDistribution();
+            performanceFactor = ElasticScheduler.getPerformanceFactor(histograms, twoTireRouting);
         } catch (Exception e) {
             e.printStackTrace();
         }

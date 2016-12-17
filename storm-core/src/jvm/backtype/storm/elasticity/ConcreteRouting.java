@@ -39,11 +39,6 @@ public class ConcreteRouting implements RoutingTable {
     }
 
     @Override
-    public void enableRoutingDistributionSampling() {
-
-    }
-
-    @Override
     public long getSigniture() {
         return 0;
     }

@@ -69,11 +69,6 @@ public class PartialHashingRouting implements RoutingTable {
     }
 
     @Override
-    public synchronized void enableRoutingDistributionSampling() {
-        _routingTable.enableRoutingDistributionSampling();
-    }
-
-    @Override
     public long getSigniture() {
         return signature + _routingTable.getSigniture();
     }
@@ -81,7 +76,7 @@ public class PartialHashingRouting implements RoutingTable {
     @Override
     public synchronized int scalingOut() {
         int newRouteIndex = -1;
-//        if(_routingTable instanceof BalancedHashRouting) {
+//        if(_routingTable instanceof TwoTireRouting) {
             newRouteIndex = _routingTable.scalingOut();
 //        }
         _validRoutes.add(newRouteIndex);
@@ -182,9 +177,9 @@ public class PartialHashingRouting implements RoutingTable {
         map.put(1,0);
         map.put(2,1);
         map.put(3,1);
-        BalancedHashRouting balancedHashRouting = new BalancedHashRouting(map,2);
+        TwoTireRouting twoTireRouting = new TwoTireRouting(map,2);
 
-        PartialHashingRouting partialHashingRouting2 = new PartialHashingRouting(balancedHashRouting);
+        PartialHashingRouting partialHashingRouting2 = new PartialHashingRouting(twoTireRouting);
 
         System.out.println("2-->" + partialHashingRouting2.route(1).route);
 

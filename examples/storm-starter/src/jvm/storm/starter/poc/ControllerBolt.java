@@ -2,8 +2,7 @@ package storm.starter.poc;
 
 import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.elasticity.config.Config;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
-import backtype.storm.elasticity.routing.RoutingTable;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.ShardReassignment;
 import backtype.storm.elasticity.scheduler.ShardReassignmentPlan;
@@ -42,7 +41,7 @@ public class ControllerBolt extends BaseRichBolt implements ResourceCentricContr
 
     List<Integer> upstreamTaskIds, downStreamTaskIds;
 
-    BalancedHashRouting routingTable;
+    TwoTireRouting routingTable;
 
     Map<Integer, Semaphore> sourceTaskIdToPendingTupleCleanedSemaphore = new ConcurrentHashMap<>();
     Map<Integer, Semaphore> targetTaskIdToWaitingStateMigrationSemaphore = new ConcurrentHashMap<>();
@@ -57,7 +56,7 @@ public class ControllerBolt extends BaseRichBolt implements ResourceCentricContr
         upstreamTaskIds = context.getComponentTasks(PocTopology.ForwardBolt);
         downStreamTaskIds = context.getComponentTasks(PocTopology.TransactionBolt);
 
-        routingTable = new BalancedHashRouting(downStreamTaskIds.size());
+        routingTable = new TwoTireRouting(downStreamTaskIds.size());
 
         new Thread(new Runnable() {
             @Override

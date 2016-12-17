@@ -15,7 +15,7 @@ import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.metrics.ThroughputForRoutes;
 import backtype.storm.elasticity.metrics.WorkerMetrics;
 import backtype.storm.elasticity.resource.ResourceMonitor;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
@@ -888,14 +888,14 @@ public class ElasticTaskHolder {
         return tupleSerializer;
     }
 
-    private BalancedHashRouting getBalancedHashRoutingFromOriginalBolt(int taskid) {
+    private TwoTireRouting getBalancedHashRoutingFromOriginalBolt(int taskid) {
         if(_bolts.containsKey(taskid)) {
 
                 RoutingTable routingTable = _bolts.get(taskid).get_elasticExecutor().get_routingTable();
-                if(routingTable instanceof BalancedHashRouting) {
-                    return (BalancedHashRouting)routingTable;
-                } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof BalancedHashRouting)) {
-                    return (BalancedHashRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
+                if(routingTable instanceof TwoTireRouting) {
+                    return (TwoTireRouting)routingTable;
+                } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof TwoTireRouting)) {
+                    return (TwoTireRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
                 }
 
 
@@ -903,14 +903,14 @@ public class ElasticTaskHolder {
         return null;
     }
 
-    private BalancedHashRouting getBalancedHashRoutingFromRemoteBolt(int taskid) {
+    private TwoTireRouting getBalancedHashRoutingFromRemoteBolt(int taskid) {
         if(_originalTaskIdToRemoteTaskExecutor.containsKey(taskid)) {
 
             RoutingTable routingTable = _originalTaskIdToRemoteTaskExecutor.get(taskid)._elasticExecutor.get_routingTable();
-            if(routingTable instanceof BalancedHashRouting) {
-                return (BalancedHashRouting)routingTable;
-            } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof BalancedHashRouting)) {
-                return (BalancedHashRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
+            if(routingTable instanceof TwoTireRouting) {
+                return (TwoTireRouting)routingTable;
+            } else if ((routingTable instanceof PartialHashingRouting) && (((PartialHashingRouting) routingTable).getOriginalRoutingTable() instanceof TwoTireRouting)) {
+                return (TwoTireRouting)((PartialHashingRouting) routingTable).getOriginalRoutingTable();
             }
         }
         return null;
@@ -919,21 +919,21 @@ public class ElasticTaskHolder {
 
     private void handleBucketToRouteReassignment(BucketToRouteReassignment reassignment) {
         if(_bolts.containsKey(reassignment.taskid)) {
-            BalancedHashRouting balancedHashRouting = getBalancedHashRoutingFromOriginalBolt(reassignment.taskid);
-            if(balancedHashRouting == null)
+            TwoTireRouting twoTireRouting = getBalancedHashRoutingFromOriginalBolt(reassignment.taskid);
+            if(twoTireRouting == null)
                 throw new RuntimeException("Balanced Hash Routing is null!");
             for(int bucket: reassignment.reassignment.keySet()) {
-                balancedHashRouting.reassignBucketToRoute(bucket, reassignment.reassignment.get(bucket));
+                twoTireRouting.reassignBucketToRoute(bucket, reassignment.reassignment.get(bucket));
 //                sendMessageToMaster(bucket + " is reassigned to "+ reassignment.reassignment.get(bucket) + " in the original elastic task");
                 System.out.println(bucket + " is reassigned to "+ reassignment.reassignment.get(bucket) + " in the original elastic task");
             }
         }
         if(_originalTaskIdToRemoteTaskExecutor.containsKey(reassignment.taskid)) {
-            BalancedHashRouting balancedHashRouting = getBalancedHashRoutingFromRemoteBolt(reassignment.taskid);
+            TwoTireRouting twoTireRouting = getBalancedHashRoutingFromRemoteBolt(reassignment.taskid);
             for(int bucket: reassignment.reassignment.keySet()) {
-                balancedHashRouting.reassignBucketToRoute(bucket, reassignment.reassignment.get(bucket));
+                twoTireRouting.reassignBucketToRoute(bucket, reassignment.reassignment.get(bucket));
 //                sendMessageToMaster(bucket + " is reassigned to "+ reassignment.reassignment.get(bucket) + " in the remote elastic task");
-//                sendMessageToMaster(balancedHashRouting.toString());
+//                sendMessageToMaster(twoTireRouting.toString());
                 System.out.println(bucket + " is reassigned to "+ reassignment.reassignment.get(bucket) + " in the remote elastic task");
             }
         }
@@ -962,7 +962,6 @@ public class ElasticTaskHolder {
                 throw new RoutingTypeNotSupportedException("Only support hash routing now!");
             _bolts.get(taskid).get_elasticExecutor().setHashRouting(numberOfRouting);
         }
-        _bolts.get(taskid).get_elasticExecutor().get_routingTable().enableRoutingDistributionSampling();
         _slaveActor.sendMessageToMaster("New RoutingTable has been created!");
         System.out.println("RoutingTable has been created");
 
@@ -1156,26 +1155,26 @@ public class ElasticTaskHolder {
             throw new TaskNotExistingException("Task " + taskid + " does not exist balls the ElasticHolder!");
         }
         if(getBalancedHashRoutingFromOriginalBolt(taskid)==null) {
-            throw new RoutingTypeNotSupportedException("ReassignHashBucketToRoute only applies on BalancedHashRouting or PartialHashRouting with a internal BalancedHashRouting");
+            throw new RoutingTypeNotSupportedException("ReassignHashBucketToRoute only applies on TwoTireRouting or PartialHashRouting with a internal TwoTireRouting");
         }
 
-        BalancedHashRouting balancedHashRouting;// = (BalancedHashRouting)_bolts.get(taskid).get_elasticExecutor().get_routingT
-        if(_bolts.get(taskid).get_elasticExecutor().get_routingTable() instanceof BalancedHashRouting) {
-            balancedHashRouting = (BalancedHashRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable();
+        TwoTireRouting twoTireRouting;// = (TwoTireRouting)_bolts.get(taskid).get_elasticExecutor().get_routingT
+        if(_bolts.get(taskid).get_elasticExecutor().get_routingTable() instanceof TwoTireRouting) {
+            twoTireRouting = (TwoTireRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable();
         } else {
-            balancedHashRouting = (BalancedHashRouting)((PartialHashingRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable()).getOriginalRoutingTable();
+            twoTireRouting = (TwoTireRouting)((PartialHashingRouting)_bolts.get(taskid).get_elasticExecutor().get_routingTable()).getOriginalRoutingTable();
         }
 
-        if(!(balancedHashRouting.getRoutes().contains(orignalRoute))) {
+        if(!(twoTireRouting.getRoutes().contains(orignalRoute))) {
             throw new InvalidRouteException("Original Route " + orignalRoute + " does not exist!");
         }
 
-        if(!(balancedHashRouting.getRoutes().contains(targetRoute))) {
+        if(!(twoTireRouting.getRoutes().contains(targetRoute))) {
             throw new InvalidRouteException("Target Route " + targetRoute + " does not exist!");
         }
 
 
-        if(!balancedHashRouting.getBucketSet().contains(bucketId)) {
+        if(!twoTireRouting.getBucketSet().contains(bucketId)) {
             throw new BucketNotExistingException("Bucket " + bucketId + " does not exist balls the balanced hash routing table!");
         }
 
@@ -1245,7 +1244,7 @@ public class ElasticTaskHolder {
         if(!targetHost.equals(originalHost)) {
 
             SmartTimer.getInstance().start("ShardReassignment","state migration 3");
-            HashBucketFilter filter = new HashBucketFilter(balancedHashRouting.getNumberOfBuckets(), bucketId);
+            HashBucketFilter filter = new HashBucketFilter(twoTireRouting.getNumberOfBuckets(), bucketId);
             if(!originalHost.equals("local")) {
                 StateFlushToken stateFlushToken = new StateFlushToken(taskid, orignalRoute, filter);
                 _taskidRouteToConnection.get(taskid+ "." + orignalRoute).send(taskid, SerializationUtils.serialize(stateFlushToken));
@@ -1356,7 +1355,7 @@ public class ElasticTaskHolder {
             return null;
         }
         RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
-        return ((BalancedHashRouting)RoutingTableUtils.getBalancecHashRouting(routingTable)).getBucketsDistribution();
+        return ((TwoTireRouting)RoutingTableUtils.getBalancecHashRouting(routingTable)).getBucketsDistribution();
     }
 
     public void migrateSubtask(String targetHost, int taskId, int routeId)  throws InvalidRouteException, RoutingTypeNotSupportedException, HostNotExistException, TaskNotExistingException {
@@ -1468,16 +1467,16 @@ public class ElasticTaskHolder {
 
             RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
-            if(balancedHashRouting == null) {
+            if(twoTireRouting == null) {
                 throw new RoutingTypeNotSupportedException("Only support balanced hash routing for scaling out now!");
             }
 
-            int numberOfSubtasks = balancedHashRouting.getNumberOfRoutes();
+            int numberOfSubtasks = twoTireRouting.getNumberOfRoutes();
             // collect the necessary metrics first.
-            Histograms histograms = balancedHashRouting.getBucketsDistribution();
-            Map<Integer, Integer> shardToRoutingMapping = balancedHashRouting.getBucketToRouteMapping();
+            Histograms histograms = twoTireRouting.getBucketsDistribution();
+            Map<Integer, Integer> shardToRoutingMapping = twoTireRouting.getBucketToRouteMapping();
 
             ArrayList<SubTaskWorkload> subTaskWorkloads = new ArrayList<>();
             for(int i = 0; i < numberOfSubtasks; i++ ) {
@@ -1569,19 +1568,19 @@ public class ElasticTaskHolder {
             }
             RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
-            if(balancedHashRouting == null) {
+            if(twoTireRouting == null) {
                 throw new RoutingTypeNotSupportedException("Only support balanced hash routing for scaling in now!");
             }
 
-            int targetSubtaskId = balancedHashRouting.getNumberOfRoutes() -1;
-            int numberOfSubtasks = balancedHashRouting.getNumberOfRoutes();
+            int targetSubtaskId = twoTireRouting.getNumberOfRoutes() -1;
+            int numberOfSubtasks = twoTireRouting.getNumberOfRoutes();
             System.out.println(String.format("Scaling: %d --> %d", numberOfSubtasks, numberOfSubtasks - 1));
             // collect the necessary metrics first.
             System.out.println("begin to collect the metrics...");
-            Histograms histograms = balancedHashRouting.getBucketsDistribution();
-            Map<Integer, Integer> shardToRoutingMapping = balancedHashRouting.getBucketToRouteMapping();
+            Histograms histograms = twoTireRouting.getBucketsDistribution();
+            Map<Integer, Integer> shardToRoutingMapping = twoTireRouting.getBucketToRouteMapping();
 
             ArrayList<SubTaskWorkload> subTaskWorkloads = new ArrayList<>();
             for(int i = 0; i < numberOfSubtasks; i++) {
@@ -1643,7 +1642,7 @@ public class ElasticTaskHolder {
             SmartTimer.getInstance().stop("Scaling In Subtask", "Termination");
 
             SmartTimer.getInstance().start("Scaling In Subtask", "update routing table");
-            balancedHashRouting.scalingIn();
+            twoTireRouting.scalingIn();
             SmartTimer.getInstance().stop("Scaling In Subtask", "update routing table");
 
 
@@ -1657,8 +1656,8 @@ public class ElasticTaskHolder {
             }
             sendMessageToMaster(string);
 
-            sendMessageToMaster("Current DOP: " + balancedHashRouting.getRoutes().size());
-            System.out.println("scaling in subtask command is done, current Dop = " + balancedHashRouting.getRoutes().size());
+            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
+            System.out.println("scaling in subtask command is done, current Dop = " + twoTireRouting.getRoutes().size());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -1675,16 +1674,16 @@ public class ElasticTaskHolder {
             }
             RoutingTable routingTable = _bolts.get(taskId).get_elasticExecutor().get_routingTable();
 
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 
-            if(balancedHashRouting == null) {
+            if(twoTireRouting == null) {
                 throw new RoutingTypeNotSupportedException("Only support balanced hash routing for scaling out now!");
             }
 
 
             // collect necessary statistics first, otherwise those data might not be available after scaling out of the routing table.
-            Histograms histograms = balancedHashRouting.getBucketsDistribution();
-            Map<Integer, Integer> shardToRoutingMapping = balancedHashRouting.getBucketToRouteMapping();
+            Histograms histograms = twoTireRouting.getBucketsDistribution();
+            Map<Integer, Integer> shardToRoutingMapping = twoTireRouting.getBucketToRouteMapping();
 
             int newSubtaskId = routingTable.scalingOut();
 
@@ -1778,8 +1777,8 @@ public class ElasticTaskHolder {
                 shardMovements += reassignment.shardId + " ";
             }
             sendMessageToMaster(shardMovements);
-            sendMessageToMaster("Current DOP: " + balancedHashRouting.getRoutes().size());
-            System.out.println("Scaling out command is handed. The current Dop is " + balancedHashRouting.getRoutes().size());
+            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
+            System.out.println("Scaling out command is handed. The current Dop is " + twoTireRouting.getRoutes().size());
             return Status.OK();
 
         } catch (Exception e) {

@@ -1,7 +1,6 @@
 package storm.starter.poc;
 
-import backtype.storm.elasticity.routing.BalancedHashRouting;
-import backtype.storm.elasticity.routing.RoutingTable;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
@@ -10,7 +9,6 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
-import com.google.common.util.concurrent.Runnables;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +25,7 @@ public class ForwardBolt extends BaseRichBolt {
     List<Integer> downStreamTaskIds;
     int numberOfTransactionTasks;
 
-    transient BalancedHashRouting routingTable;
+    transient TwoTireRouting routingTable;
 
     BlockingQueue<Tuple> tuples;
 
@@ -89,7 +87,7 @@ public class ForwardBolt extends BaseRichBolt {
         downStreamTaskIds = context.getComponentTasks(PocTopology.TransactionBolt);
         numberOfTransactionTasks = downStreamTaskIds.size();
 
-        routingTable = new BalancedHashRouting(numberOfTransactionTasks);
+        routingTable = new TwoTireRouting(numberOfTransactionTasks);
 
         emitter = new Emitter();
         new Thread(emitter).start();

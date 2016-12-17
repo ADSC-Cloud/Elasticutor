@@ -79,12 +79,6 @@ public class HashingRouting implements RoutingTable {
     }
 
     @Override
-    public synchronized void enableRoutingDistributionSampling() {
-        sampler = new SlidingWindowRouteSampler(numberOfRoutes);
-        sampler.enable();
-    }
-
-    @Override
     public long getSigniture() {
         return signature;
     }

@@ -8,7 +8,7 @@ import backtype.storm.elasticity.exceptions.RoutingTypeNotSupportedException;
 import backtype.storm.elasticity.message.actormessage.ExecutorScalingInRequestMessage;
 import backtype.storm.elasticity.message.actormessage.ExecutorScalingOutRequestMessage;
 import backtype.storm.elasticity.resource.ResourceManager;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
 import backtype.storm.elasticity.scheduler.algorithm.LocalityAndMigrationCostAwareScheduling;
@@ -280,13 +280,13 @@ public class ElasticScheduler {
     }
 
 
-    public static double getSkewnessFactor(Histograms histograms, BalancedHashRouting balancedHashRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
+    public static double getSkewnessFactor(Histograms histograms, TwoTireRouting twoTireRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
 //        RoutingTable routingTable = master.getRoutingTable(taskId);
-//        BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
-//        if(balancedHashRouting == null) {
-//            throw new RoutingTypeNotSupportedException("Only support BalancedHashRouting family routing table!");
+//        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+//        if(twoTireRouting == null) {
+//            throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
 //        }
-//            System.out.println("routing Table: " + balancedHashRouting.toString());
+//            System.out.println("routing Table: " + twoTireRouting.toString());
 
 
 
@@ -295,8 +295,8 @@ public class ElasticScheduler {
 //            System.out.println("Histograms: " + histograms.toString());
 
         // 3. evaluate the skewness
-        Map<Integer, Integer> shardToRouteMapping = balancedHashRouting.getBucketToRouteMapping();
-        final int numberOfRoutes = balancedHashRouting.getNumberOfRoutes();
+        Map<Integer, Integer> shardToRouteMapping = twoTireRouting.getBucketToRouteMapping();
+        final int numberOfRoutes = twoTireRouting.getNumberOfRoutes();
         long[] routeLoads = new long[numberOfRoutes];
 
         for(Integer shard: shardToRouteMapping.keySet()) {
@@ -331,8 +331,8 @@ public class ElasticScheduler {
         return (loadMax - loadMin) / (double)loadMax;
     }
 
-    public static double getPerformanceFactor(BalancedHashRouting balancedHashRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
-        return getPerformanceFactor(balancedHashRouting.getBucketsDistribution(), balancedHashRouting);
+    public static double getPerformanceFactor(TwoTireRouting twoTireRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
+        return getPerformanceFactor(twoTireRouting.getBucketsDistribution(), twoTireRouting);
     }
 
         /**
@@ -340,18 +340,18 @@ public class ElasticScheduler {
          * to the optimal performance. Performance ratio is from 0 to 1. The higher ratio is, the better load balance
          * is achieved.
          * @param histograms statics on the bucket level
-         * @param balancedHashRouting routing table, containing the shard to task mapping.
+         * @param twoTireRouting routing table, containing the shard to task mapping.
          * @return the performance factor
          * @throws TaskNotExistException
          * @throws RoutingTypeNotSupportedException
          */
-    public static double getPerformanceFactor(Histograms histograms, BalancedHashRouting balancedHashRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
+    public static double getPerformanceFactor(Histograms histograms, TwoTireRouting twoTireRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
 //        RoutingTable routingTable = master.getRoutingTable(taskId);
-//        BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
-//        if(balancedHashRouting == null) {
-//            throw new RoutingTypeNotSupportedException("Only support BalancedHashRouting family routing table!");
+//        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+//        if(twoTireRouting == null) {
+//            throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
 //        }
-//            System.out.println("routing Table: " + balancedHashRouting.toString());
+//            System.out.println("routing Table: " + twoTireRouting.toString());
 
 
 
@@ -360,8 +360,8 @@ public class ElasticScheduler {
 //            System.out.println("Histograms: " + histograms.toString());
 
         // 3. evaluate the skewness
-        Map<Integer, Integer> shardToRouteMapping = balancedHashRouting.getBucketToRouteMapping();
-        final int numberOfRoutes = balancedHashRouting.getNumberOfRoutes();
+        Map<Integer, Integer> shardToRouteMapping = twoTireRouting.getBucketToRouteMapping();
+        final int numberOfRoutes = twoTireRouting.getNumberOfRoutes();
         long[] routeLoads = new long[numberOfRoutes];
 
         for(Integer shard: shardToRouteMapping.keySet()) {
@@ -397,10 +397,10 @@ public class ElasticScheduler {
         return ratio;
     }
 
-    static public long[] getRouteLoads(BalancedHashRouting balancedHashRouting) {
-        Histograms histograms = balancedHashRouting.getBucketsDistribution();
-        Map<Integer, Integer> shardToRouteMapping = balancedHashRouting.getBucketToRouteMapping();
-        final int numberOfRoutes = balancedHashRouting.getNumberOfRoutes();
+    static public long[] getRouteLoads(TwoTireRouting twoTireRouting) {
+        Histograms histograms = twoTireRouting.getBucketsDistribution();
+        Map<Integer, Integer> shardToRouteMapping = twoTireRouting.getBucketToRouteMapping();
+        final int numberOfRoutes = twoTireRouting.getNumberOfRoutes();
         long[] routeLoads = new long[numberOfRoutes];
         for(Integer shard: shardToRouteMapping.keySet()) {
             routeLoads[shardToRouteMapping.get(shard)] += histograms.histogramsToArrayList().get(shard);
@@ -408,9 +408,9 @@ public class ElasticScheduler {
         return routeLoads;
     }
 
-    static public long getMaxShardLoad(BalancedHashRouting balancedHashRouting) {
+    static public long getMaxShardLoad(TwoTireRouting twoTireRouting) {
         long ret = Long.MIN_VALUE;
-        for(long i: balancedHashRouting.getBucketsDistribution().histogramsToArrayList()) {
+        for(long i: twoTireRouting.getBucketsDistribution().histogramsToArrayList()) {
             ret = Math.max(ret, i);
         }
         return ret;
@@ -419,15 +419,15 @@ public class ElasticScheduler {
     public boolean isWorkloadSkewed(int taskId) {
         try {
             RoutingTable routingTable = master.getRoutingTable(taskId);
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
-            if(balancedHashRouting == null) {
-                throw new RoutingTypeNotSupportedException("Only support BalancedHashRouting family routing table!");
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            if(twoTireRouting == null) {
+                throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
             }
 
             // 2. get Distribution;
             Histograms histograms = master.getBucketDistribution(taskId);
 
-            double workloadFactor = getSkewnessFactor(histograms, balancedHashRouting);
+            double workloadFactor = getSkewnessFactor(histograms, twoTireRouting);
             return workloadFactor >= Config.taskLevelLoadBalancingThreshold;
         } catch (Exception e) {
             e.printStackTrace();
@@ -442,11 +442,11 @@ public class ElasticScheduler {
 //            System.out.println("Task-level Load Balance model is called on Executor " + taskId);
             // 1. get routingTable
             RoutingTable routingTable = master.getRoutingTable(taskId);
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
-            if(balancedHashRouting == null) {
-//                throw new RoutingTypeNotSupportedException("Only support BalancedHashRouting family routing table!");
-                System.out.println("Only support BalancedHashRouting family routing table!");
-                return "Only support BalancedHashRouting family routing table!";
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            if(twoTireRouting == null) {
+//                throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
+                System.out.println("Only support TwoTireRouting family routing table!");
+                return "Only support TwoTireRouting family routing table!";
             }
 
             // 2. get Distribution;
@@ -454,8 +454,8 @@ public class ElasticScheduler {
 
 //            System.out.println(histograms);
 
-            double workloadFactor = getSkewnessFactor(histograms, balancedHashRouting);
-            double performanceFactor = getPerformanceFactor(histograms, balancedHashRouting);
+            double workloadFactor = getSkewnessFactor(histograms, twoTireRouting);
+            double performanceFactor = getPerformanceFactor(histograms, twoTireRouting);
             boolean skewness = workloadFactor >= threshold;
 
 //            System.out.println("Workload distribution:\n");
@@ -472,9 +472,9 @@ public class ElasticScheduler {
 
             if(skewness) {
 
-//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(taskId, histograms, numberOfRoutes, balancedHashRouting.getBucketToRouteMapping());
+//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(taskId, histograms, numberOfRoutes, twoTireRouting.getBucketToRouteMapping());
                 try {
-                    ShardReassignmentPlan plan = getMinimizedShardToTaskReassignment(taskId, routingTable.getNumberOfRoutes(), balancedHashRouting.getBucketToRouteMapping(), histograms);
+                    ShardReassignmentPlan plan = getMinimizedShardToTaskReassignment(taskId, routingTable.getNumberOfRoutes(), twoTireRouting.getBucketToRouteMapping(), histograms);
 
 //                    System.out.println(plan);
 
@@ -487,11 +487,11 @@ public class ElasticScheduler {
                     return plan.toString();
                 } catch (Exception e) {
                     e.printStackTrace();
-                    System.out.println("Mapping: " + balancedHashRouting.getBucketToRouteMapping());
+                    System.out.println("Mapping: " + twoTireRouting.getBucketToRouteMapping());
                     System.out.println("# of Routes: " + routingTable.getNumberOfRoutes());
 
                     Slave.getInstance().sendMessageToMaster(e.getMessage());
-                    Slave.getInstance().sendMessageToMaster("Mapping: " + balancedHashRouting.getBucketToRouteMapping());
+                    Slave.getInstance().sendMessageToMaster("Mapping: " + twoTireRouting.getBucketToRouteMapping());
                     Slave.getInstance().sendMessageToMaster("# of Routes: " + routingTable.getNumberOfRoutes());
                     return "ERROR!!!";
                 }

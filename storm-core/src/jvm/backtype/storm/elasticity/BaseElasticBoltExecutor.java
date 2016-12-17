@@ -5,14 +5,13 @@ import backtype.storm.elasticity.config.Config;
 import backtype.storm.elasticity.metrics.ElasticExecutorMetrics;
 import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.metrics.ThroughputForRoutes;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.routing.PartialHashingRouting;
 import backtype.storm.elasticity.routing.RoutingTable;
 import backtype.storm.elasticity.routing.RoutingTableUtils;
 import backtype.storm.elasticity.scheduler.ElasticScheduler;
 import backtype.storm.elasticity.scheduler.model.ExecutorParallelismPredictor;
 import backtype.storm.elasticity.scheduler.model.LoadBalancingAwarePredictor;
-import backtype.storm.elasticity.utils.KeyBucketSampler;
 import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.serialization.KryoTupleSerializer;
 import backtype.storm.task.OutputCollector;
@@ -185,7 +184,6 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         if(_holder!=null) {
             _holder.registerElasticBolt(this, _taskId);
         }
-        _elasticExecutor.get_routingTable().enableRoutingDistributionSampling();
     }
 
     private boolean isSaturated() {
@@ -421,13 +419,13 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             double processingRatePerProcessor = 1 / (averageLatency / 1000000000.0);
 
             RoutingTable routingTable = _elasticExecutor.get_routingTable();
-            BalancedHashRouting balancedHashRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
-            if (balancedHashRouting == null) {
+            TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
+            if (twoTireRouting == null) {
                 return 1;
             }
 
-            long[] routeLoads = ElasticScheduler.getRouteLoads(balancedHashRouting);
-            long maxShardLoad = ElasticScheduler.getMaxShardLoad(balancedHashRouting);
+            long[] routeLoads = ElasticScheduler.getRouteLoads(twoTireRouting);
+            long maxShardLoad = ElasticScheduler.getMaxShardLoad(twoTireRouting);
 
 //            ExecutorParallelismPredictor predictor = new NaivePredictor();
             ExecutorParallelismPredictor predictor = new LoadBalancingAwarePredictor();
@@ -437,8 +435,8 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //                Slave.getInstance().logOnMaster(String.format("Task %d is saturated!", _taskId));
             }
 
-            final int desirableParallelism = predictor.predict(inputRate, balancedHashRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad, isSaturated);
-//            Slave.getInstance().sendMessageToMaster(String.format("Task %d: input rate=%.2f rate per task=%.2f latency: %.2f ms performance factor=%.2f", _taskId, inputRate, processingRatePerProcessor, averageLatency / 1000000.0, ElasticScheduler.getPerformanceFactor(balancedHashRouting)));
+            final int desirableParallelism = predictor.predict(inputRate, twoTireRouting.getNumberOfRoutes(), processingRatePerProcessor, routeLoads, maxShardLoad, isSaturated);
+//            Slave.getInstance().sendMessageToMaster(String.format("Task %d: input rate=%.2f rate per task=%.2f latency: %.2f ms performance factor=%.2f", _taskId, inputRate, processingRatePerProcessor, averageLatency / 1000000.0, ElasticScheduler.getPerformanceFactor(twoTireRouting)));
             return desirableParallelism;
         } catch (Exception e) {
             e.printStackTrace();

@@ -29,11 +29,6 @@ public class VoidRouting implements RoutingTable {
     }
 
     @Override
-    public void enableRoutingDistributionSampling() {
-
-    }
-
-    @Override
     public long getSigniture() {
         return 0;
     }

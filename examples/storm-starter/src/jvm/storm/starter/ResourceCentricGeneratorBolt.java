@@ -1,8 +1,7 @@
 package storm.starter;
 
 import backtype.storm.elasticity.actors.Slave;
-import backtype.storm.elasticity.routing.BalancedHashRouting;
-import backtype.storm.elasticity.routing.RoutingTable;
+import backtype.storm.elasticity.routing.TwoTireRouting;
 import backtype.storm.elasticity.utils.surveillance.ThroughputMonitor;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
@@ -12,9 +11,7 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
-import org.apache.commons.collections.ArrayStack;
 import org.apache.commons.collections.map.HashedMap;
-import org.apache.commons.math3.distribution.ZipfDistribution;
 import storm.starter.util.KeyGenerator;
 import storm.starter.util.RoundRobinKeyGenerator;
 import storm.starter.util.ZipfKeyGenerator;
@@ -32,7 +29,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     double _exponent;
     Thread _emitThread;
     transient ThroughputMonitor monitor;
-    transient BalancedHashRouting routingTable;
+    transient TwoTireRouting routingTable;
 
     private int numberOfComputingTasks;
     private List<Integer> downStreamTaskIds;
@@ -176,7 +173,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
         numberOfComputingTasks = downStreamTaskIds.size();
 
-        routingTable = new BalancedHashRouting(numberOfComputingTasks);
+        routingTable = new TwoTireRouting(numberOfComputingTasks);
 
         createOrUpdateGenerator();
 
