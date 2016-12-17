@@ -133,7 +133,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
                     count++;
                     if (count % 1000 == 0) {
-//                    Slave.getInstance().logOnMaster(String.format("Task %d: %d", taskId, count));
+//                    Slave.getInstance().logOnMaster(String.format("Task %d: %d", executorId, count));
                     }
                     if (count % 50 == 0) {
                         _collector.emit(ResourceCentricZipfComputationTopology.CountReportSteram, new Values(taskIndex, count));
@@ -148,7 +148,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     }
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declare(new Fields("numberOfTask"));
-        declarer.declareStream("statics", new Fields("taskId", "Histogram"));
+        declarer.declareStream("statics", new Fields("executorId", "Histogram"));
         declarer.declareStream(ResourceCentricZipfComputationTopology.StateMigrationCommandStream, new Fields("sourceTaskId","targetTaskId", "shardId"));
         declarer.declareStream(ResourceCentricZipfComputationTopology.FeedbackStream, new Fields("command", "arg1"));
         declarer.declareStream(ResourceCentricZipfComputationTopology.CountReportSteram, new Fields("taskid", "count"));
@@ -224,7 +224,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             if(command.equals("getHistograms")) {
                 _collector.emit("statics", new Values(taskId, routingTable.getBucketsDistribution()));
             } else if (command.equals("pausing")) {
-//                Slave.getInstance().logOnMaster("Received pausing command on " + taskId);
+//                Slave.getInstance().logOnMaster("Received pausing command on " + executorId);
                 int sourceTaskOffset = tuple.getInteger(1);
                 int targetTaskOffset = tuple.getInteger(2);
                 int shardId = tuple.getInteger(3);
@@ -234,13 +234,13 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 //                _emitThread.interrupt();
 //                try {
 //                    _emitThread.join();
-////                    Slave.getInstance().logOnMaster("Sending thread is paused on " + taskId);
+////                    Slave.getInstance().logOnMaster("Sending thread is paused on " + executorId);
 //                }
 //                catch (InterruptedException e) {
 //                    e.printStackTrace();
 //                }
                 routingTable.reassignBucketToRoute(shardId, targetTaskOffset);
-//                Slave.getInstance().logOnMaster("Routing table is updated on " + taskId);
+//                Slave.getInstance().logOnMaster("Routing table is updated on " + executorId);
                 _collector.emitDirect(downStreamTaskIds.get(sourceTaskOffset), ResourceCentricZipfComputationTopology.StateMigrationCommandStream, new Values(sourceTaskOffset, targetTaskOffset, shardId));
             } else if (command.equals("resuming")) {
                 int sourceTaskIndex = tuple.getInteger(1);
@@ -256,7 +256,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             Slave.getInstance().logOnMaster(String.format("Prime is changed to %d on task %d", _prime, taskId ));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.CountPermissionStream)) {
             progressPermission = Math.max(progressPermission, tuple.getLong(0));
-//            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", taskId, progressPermission));
+//            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", executorId, progressPermission));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm)) {
             long receivedPuncutation = tuple.getLong(0);
             if(currentPuncutationLowWaterMarker + puncutationGenrationFrequency == receivedPuncutation) {

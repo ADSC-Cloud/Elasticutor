@@ -172,7 +172,7 @@ public class GeneratorBolt implements IRichBolt{
             Slave.getInstance().logOnMaster(String.format("Prime changed to %d!", _prime));
         } else if (tuple.getSourceStreamId().equals("CountPermissionStream")) {
             progress = Math.max(progress, tuple.getLong(0));
-//            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", taskId, progress));
+//            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", executorId, progress));
         }
     }
 

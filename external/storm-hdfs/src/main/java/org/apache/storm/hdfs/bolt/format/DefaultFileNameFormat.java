@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Creates file names with the following format:
  * <pre>
- *     {prefix}{componentId}-{taskId}-{rotationNum}-{timestamp}{extension}
+ *     {prefix}{componentId}-{executorId}-{rotationNum}-{timestamp}{extension}
  * </pre>
  * For example:
  * <pre>

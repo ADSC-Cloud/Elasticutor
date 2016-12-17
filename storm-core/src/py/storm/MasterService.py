@@ -44,7 +44,7 @@ class Iface:
     """
     Parameters:
      - targetHostName
-     - taskId
+     - executorId
      - routeNo
     """
     pass
@@ -217,7 +217,7 @@ class Client(Iface):
     """
     Parameters:
      - targetHostName
-     - taskId
+     - executorId
      - routeNo
     """
     self.send_migrateTasks(targetHostName, taskId, routeNo)
@@ -1479,14 +1479,14 @@ class migrateTasks_args:
   """
   Attributes:
    - targetHostName
-   - taskId
+   - executorId
    - routeNo
   """
 
   thrift_spec = (
     None, # 0
     (1, TType.STRING, 'targetHostName', None, None, ), # 1
-    (2, TType.I32, 'taskId', None, None, ), # 2
+    (2, TType.I32, 'executorId', None, None, ), # 2
     (3, TType.I32, 'routeNo', None, None, ), # 3
   )
 
@@ -1534,7 +1534,7 @@ class migrateTasks_args:
       oprot.writeString(self.targetHostName.encode('utf-8'))
       oprot.writeFieldEnd()
     if self.taskId is not None:
-      oprot.writeFieldBegin('taskId', TType.I32, 2)
+      oprot.writeFieldBegin('executorId', TType.I32, 2)
       oprot.writeI32(self.taskId)
       oprot.writeFieldEnd()
     if self.routeNo is not None:

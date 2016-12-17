@@ -31,23 +31,16 @@ public class ElasticRemoteTaskExecutor {
 
     ElasticExecutor _elasticExecutor;
 
-    ArrayBlockingQueue<ITaskMessage> _resultQueue;
+    private ArrayBlockingQueue<ITaskMessage> _resultQueue;
 
-    ArrayBlockingQueue<Object> _inputQueue = new ArrayBlockingQueue<>(Config.RemoteExecutorInputQueueCapacity);
-
-    RemoteElasticOutputCollector _outputCollector;
+    private ArrayBlockingQueue<Object> _inputQueue = new ArrayBlockingQueue<>(Config.RemoteExecutorInputQueueCapacity);
 
     BaseElasticBolt _bolt;
 
-    Thread _processingThread;
+    private Thread _inputRoutingThread;
 
-    InputTupleRouting _processingRunnable;
-
-    Thread _stateCheckpointingThread;
-    StateCheckoutPointing _checkPointing;
-
-
-//    Runnable _stateCheckpointRunnable;
+    private Thread _stateCheckpointingThread;
+    private StateCheckoutPointing _checkPointing;
 
     public ElasticRemoteTaskExecutor(ElasticExecutor tasks, ArrayBlockingQueue resultQueue, BaseElasticBolt bolt ) {
         _elasticExecutor = tasks;
@@ -56,25 +49,24 @@ public class ElasticRemoteTaskExecutor {
     }
 
     public void prepare(Map<Serializable, Serializable> state ) {
-        _outputCollector = new RemoteElasticOutputCollector(_resultQueue, _elasticExecutor.get_id());
+        final RemoteElasticOutputCollector outputCollector = new RemoteElasticOutputCollector(_resultQueue, _elasticExecutor.get_id());
         KeyValueState keyValueState = new KeyValueState();
         keyValueState.getState().putAll(state);
-        _elasticExecutor.prepare(_outputCollector, keyValueState);
+        _elasticExecutor.prepare(outputCollector, keyValueState);
         _elasticExecutor.createAndLaunchLocalTasks();
-        createProcessingThread();
+        createInputRoutingThread();
 
         //this is ignore now, as state fault tolerance is not support now. And state should be cloned before calling
         // serialize() to avoid the concurrent modification exception.
 //        createStateCheckpointingThread();
     }
 
-    public void createProcessingThread() {
-        _processingRunnable = new InputTupleRouting();
-        _processingThread = new Thread(_processingRunnable);
-        _processingThread.start();
+    private void createInputRoutingThread() {
+        _inputRoutingThread = new Thread(new InputTupleRouting());
+        _inputRoutingThread.start();
         MonitorUtils.instance().registerQueueMonitor(_inputQueue, "Remote Execute Input Queue",
                 Config.RemoteExecutorInputQueueCapacity, null, 0.8, 5);
-        MonitorUtils.instance().registerThreadMonitor(_processingThread.getId(), "remote dispatch thread", 0.9, 5);
+        MonitorUtils.instance().registerThreadMonitor(_inputRoutingThread.getId(), "remote dispatch thread", 0.9, 5);
 //        ElasticTaskHolder.instance().createQueueUtilizationMonitoringThread(_inputQueue, "Remote Input Queue", Config.RemoteExecutorInputQueueCapacity, 0.9, 0.1);
 
         System.out.println("processing thread is created!");
@@ -133,10 +125,10 @@ public class ElasticRemoteTaskExecutor {
                                 public void run() {
                                     System.out.println("to handle handleCleanPendingTupleToken");
                                     _elasticExecutor.makesSureNoPendingTuples(token.routeId);
-                                    PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.taskId, token.routeId);
-                                    System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.taskId, token.routeId));
-                                    ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.taskId).send(token.taskId, SerializationUtils.serialize(message));
-                                    System.out.println(String.format("PendingTupleCleanedMessage is sent back to %s",ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.taskId).toString()));
+                                    PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.executorId, token.routeId);
+                                    System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.executorId, token.routeId));
+                                    ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.executorId).send(token.executorId, SerializationUtils.serialize(message));
+                                    System.out.println(String.format("PendingTupleCleanedMessage is sent back to %s",ElasticTaskHolder.instance()._originalTaskIdToPriorityConnection.get(token.executorId).toString()));
                                 }
                             }).start();
                         } else {
@@ -189,15 +181,7 @@ public class ElasticRemoteTaskExecutor {
 
                 while (!_terminating) {
                     try {
-                        Thread.sleep(1000 * _cycleInSecs);
-    //                    KeyValueState state = _elasticExecutor.get_bolt().getState();
-    //                    for (Object key : state.getState().keySet()) {
-    //                        if (_elasticExecutor.get_routingTable().route(key) < 0) {
-    //                            state.getState().remove(key);
-    //                            System.out.println("Key " + key + "will be removed before migration, because it belongs to an invalid route");
-    //                        }
-    //                    }
-    //                    RemoteState remoteState = new RemoteState(_elasticExecutor.get_taskID(), state, _elasticExecutor.get_routingTable().getRoutes() );
+                        Thread.sleep(5000 * _cycleInSecs);
                         RemoteState state = getStateForRoutes(_elasticExecutor.get_routingTable().getRoutes());
                         System.out.println("State (" + state._state.size() + " element) has been added into the sending queue!");
                         _resultQueue.put(state);
@@ -222,7 +206,6 @@ public class ElasticRemoteTaskExecutor {
             }
         }
         RemoteState remoteState = new RemoteState(_elasticExecutor.get_id(),stateForRoutes.getState(),routes);
-//        _resultQueue.put(remoteState);
         return remoteState;
     }
 
@@ -247,17 +230,12 @@ public class ElasticRemoteTaskExecutor {
             TwoTireRouting exitingRouting = RoutingTableUtils.getBalancecHashRouting(_elasticExecutor.get_routingTable());
             TwoTireRouting incomingRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
             exitingRouting.update(incomingRouting);
-//            Slave.getInstance().sendMessageToMaster("Balanced Hash routing is updated!");
         } else {
             Slave.getInstance().sendMessageToMaster("Routing table cannot be updated as balanced routing table cannot be extracted!");
         }
 
         List<Integer> newRoutes = routingTable.getRoutes();
         ((PartialHashingRouting) _elasticExecutor.get_routingTable()).addValidRoutes(newRoutes);
-//        Slave.getInstance().sendMessageToMaster("Partial Hash routing is updated!");
-
-//        Slave.getInstance().sendMessageToMaster("existing routing table: " + _elasticExecutor.get_routingTable().toString());
-
 
         for(int i:routingTable.getRoutes()) {
             _elasticExecutor.createAndLaunchElasticTasksForGivenRoute(i);
@@ -284,11 +262,11 @@ public class ElasticRemoteTaskExecutor {
 
         _stateCheckpointingThread.interrupt();
 
-        MonitorUtils.instance().unregister(_processingThread.getId());
-        _processingThread.interrupt();
+        MonitorUtils.instance().unregister(_inputRoutingThread.getId());
+        _inputRoutingThread.interrupt();
         try {
             _stateCheckpointingThread.join();
-            _processingThread.join();
+            _inputRoutingThread.join();
 
         } catch (InterruptedException e) {
             e.printStackTrace();

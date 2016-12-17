@@ -146,7 +146,7 @@ class Server extends ConnectionWithStatus implements IStatefulObject {
     }
     
     private Integer getMessageQueueId(int task) {
-        // try to construct the map from taskId -> queueId in round robin manner.
+        // try to construct the map from executorId -> queueId in round robin manner.
         Integer queueId = taskToQueueId.get(task);
         if (null == queueId) {
             synchronized (this) {

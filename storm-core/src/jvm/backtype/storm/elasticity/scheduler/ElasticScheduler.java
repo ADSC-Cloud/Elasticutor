@@ -281,7 +281,7 @@ public class ElasticScheduler {
 
 
     public static double getSkewnessFactor(Histograms histograms, TwoTireRouting twoTireRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
-//        RoutingTable routingTable = master.getRoutingTable(taskId);
+//        RoutingTable routingTable = master.getRoutingTable(executorId);
 //        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 //        if(twoTireRouting == null) {
 //            throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
@@ -291,7 +291,7 @@ public class ElasticScheduler {
 
 
         // 2. get Distribution;
-//        Histograms histograms = master.getBucketDistribution(taskId);
+//        Histograms histograms = master.getBucketDistribution(executorId);
 //            System.out.println("Histograms: " + histograms.toString());
 
         // 3. evaluate the skewness
@@ -346,7 +346,7 @@ public class ElasticScheduler {
          * @throws RoutingTypeNotSupportedException
          */
     public static double getPerformanceFactor(Histograms histograms, TwoTireRouting twoTireRouting) throws TaskNotExistException, RoutingTypeNotSupportedException {
-//        RoutingTable routingTable = master.getRoutingTable(taskId);
+//        RoutingTable routingTable = master.getRoutingTable(executorId);
 //        TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
 //        if(twoTireRouting == null) {
 //            throw new RoutingTypeNotSupportedException("Only support TwoTireRouting family routing table!");
@@ -356,7 +356,7 @@ public class ElasticScheduler {
 
 
         // 2. get Distribution;
-//        Histograms histograms = master.getBucketDistribution(taskId);
+//        Histograms histograms = master.getBucketDistribution(executorId);
 //            System.out.println("Histograms: " + histograms.toString());
 
         // 3. evaluate the skewness
@@ -439,7 +439,7 @@ public class ElasticScheduler {
     public String optimizeBucketToRoutingMapping(int taskId, double threshold) throws TaskNotExistException, RoutingTypeNotSupportedException, TException {
 
         synchronized (lock) {
-//            System.out.println("Task-level Load Balance model is called on Executor " + taskId);
+//            System.out.println("Task-level Load Balance model is called on Executor " + executorId);
             // 1. get routingTable
             RoutingTable routingTable = master.getRoutingTable(taskId);
             TwoTireRouting twoTireRouting = RoutingTableUtils.getBalancecHashRouting(routingTable);
@@ -467,12 +467,12 @@ public class ElasticScheduler {
 
             if(workloadFactor > 0.99) {
 //                System.out.println(histograms);
-//                System.out.println(master.queryDistribution(taskId));
+//                System.out.println(master.queryDistribution(executorId));
             }
 
             if(skewness) {
 
-//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(taskId, histograms, numberOfRoutes, twoTireRouting.getBucketToRouteMapping());
+//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(executorId, histograms, numberOfRoutes, twoTireRouting.getBucketToRouteMapping());
                 try {
                     ShardReassignmentPlan plan = getMinimizedShardToTaskReassignment(taskId, routingTable.getNumberOfRoutes(), twoTireRouting.getBucketToRouteMapping(), histograms);
 
@@ -570,7 +570,7 @@ public class ElasticScheduler {
         for(SubtaskReassignment reassignment: plan.getSubTaskReassignments()) {
 //            System.out.println("\n===================START========================");
 //            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
-//            System.out.println("Move " + reassignment.taskId + "." + reassignment.routeId + " from " + reassignment.originalHost + " to " + reassignment.targetHost);
+//            System.out.println("Move " + reassignment.executorId + "." + reassignment.routeId + " from " + reassignment.originalHost + " to " + reassignment.targetHost);
             master.migrateTasks(reassignment.targetHost, reassignment.taskId, reassignment.routeId);
 //            System.out.println("=====================END========================\n");
         }

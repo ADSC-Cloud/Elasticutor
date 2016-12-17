@@ -3789,7 +3789,7 @@ public class MasterService {
     private static final org.apache.thrift.protocol.TStruct STRUCT_DESC = new org.apache.thrift.protocol.TStruct("migrateTasks_args");
 
     private static final org.apache.thrift.protocol.TField TARGET_HOST_NAME_FIELD_DESC = new org.apache.thrift.protocol.TField("targetHostName", org.apache.thrift.protocol.TType.STRING, (short)1);
-    private static final org.apache.thrift.protocol.TField TASK_ID_FIELD_DESC = new org.apache.thrift.protocol.TField("taskId", org.apache.thrift.protocol.TType.I32, (short)2);
+    private static final org.apache.thrift.protocol.TField TASK_ID_FIELD_DESC = new org.apache.thrift.protocol.TField("executorId", org.apache.thrift.protocol.TType.I32, (short)2);
     private static final org.apache.thrift.protocol.TField ROUTE_NO_FIELD_DESC = new org.apache.thrift.protocol.TField("routeNo", org.apache.thrift.protocol.TType.I32, (short)3);
 
     private static final Map<Class<? extends IScheme>, SchemeFactory> schemes = new HashMap<Class<? extends IScheme>, SchemeFactory>();
@@ -3805,7 +3805,7 @@ public class MasterService {
     /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
     public enum _Fields implements org.apache.thrift.TFieldIdEnum {
       TARGET_HOST_NAME((short)1, "targetHostName"),
-      TASK_ID((short)2, "taskId"),
+      TASK_ID((short)2, "executorId"),
       ROUTE_NO((short)3, "routeNo");
 
       private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
@@ -3875,7 +3875,7 @@ public class MasterService {
       Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);
       tmpMap.put(_Fields.TARGET_HOST_NAME, new org.apache.thrift.meta_data.FieldMetaData("targetHostName", org.apache.thrift.TFieldRequirementType.DEFAULT, 
           new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)));
-      tmpMap.put(_Fields.TASK_ID, new org.apache.thrift.meta_data.FieldMetaData("taskId", org.apache.thrift.TFieldRequirementType.DEFAULT, 
+      tmpMap.put(_Fields.TASK_ID, new org.apache.thrift.meta_data.FieldMetaData("executorId", org.apache.thrift.TFieldRequirementType.DEFAULT,
           new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32)));
       tmpMap.put(_Fields.ROUTE_NO, new org.apache.thrift.meta_data.FieldMetaData("routeNo", org.apache.thrift.TFieldRequirementType.DEFAULT, 
           new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32)));
@@ -3960,7 +3960,7 @@ public class MasterService {
       __isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __TASKID_ISSET_ID);
     }
 
-    /** Returns true if field taskId is set (has been assigned a value) and false otherwise */
+    /** Returns true if field executorId is set (has been assigned a value) and false otherwise */
     public boolean is_set_taskId() {
       return EncodingUtils.testBit(__isset_bitfield, __TASKID_ISSET_ID);
     }
@@ -4183,7 +4183,7 @@ public class MasterService {
       }
       first = false;
       if (!first) sb.append(", ");
-      sb.append("taskId:");
+      sb.append("executorId:");
       sb.append(this.taskId);
       first = false;
       if (!first) sb.append(", ");

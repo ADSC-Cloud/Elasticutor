@@ -136,7 +136,7 @@ public class ForwardBolt extends BaseRichBolt {
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declareStream(PocTopology.BUYER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
         declarer.declareStream(PocTopology.SELLER_STREAM, new Fields(PocTopology.ORDER_NO, PocTopology.ACCT_ID, PocTopology.SEC_CODE, PocTopology.PRICE, PocTopology.VOLUME, PocTopology.DATE, PocTopology.TIME, PocTopology.MILLISECOND, PocTopology.EMIT_TIME_STAMP));
-        declarer.declareStream(PocTopology.STATISTICS_STREAM, new Fields("taskId", "Histograms"));
+        declarer.declareStream(PocTopology.STATISTICS_STREAM, new Fields("executorId", "Histograms"));
         declarer.declareStream(PocTopology.STATE_MIGRATION_COMMAND_STREAM, new Fields("sourceTaskId","targetTaskId", "shardId"));
         declarer.declareStream(PocTopology.FEEDBACK_STREAM, new Fields("command", "arg1"));
 

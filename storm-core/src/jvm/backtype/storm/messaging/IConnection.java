@@ -22,14 +22,14 @@ import java.util.Iterator;
 public interface IConnection {   
     
     /**
-     * receive a batch message iterator (consists taskId and payload)
+     * receive a batch message iterator (consists executorId and payload)
      * @param flags 0: block, 1: non-block
      * @return
      */
     public Iterator<TaskMessage> recv(int flags, int clientId);
     
     /**
-     * send a message with taskId and payload
+     * send a message with executorId and payload
      * @param taskId task ID
      * @param payload
      */

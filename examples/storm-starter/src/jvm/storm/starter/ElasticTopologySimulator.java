@@ -169,7 +169,7 @@ public class ElasticTopologySimulator {
 //                                averageLatency = (double)latencySum.get()/latencyCount.get();
 //                            }
 //
-//                            ElasticTaskHolder.instance().sendMessageToMaster("Task " + taskId + ": " + format.format(averageLatency) + " ms" + " (" + latencyCount.get() + " tuples evaluated)");
+//                            ElasticTaskHolder.instance().sendMessageToMaster("Task " + executorId + ": " + format.format(averageLatency) + " ms" + " (" + latencyCount.get() + " tuples evaluated)");
 //                            latencySum.set(0);
 //                            latencyCount.set(0);
 //                        }

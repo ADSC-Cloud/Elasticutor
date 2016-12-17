@@ -43,7 +43,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print('')
   print('Functions:')
   print('   getAllHostNames()')
-  print('  void migrateTasks(string targetHostName, i32 taskId, i32 routeNo)')
+  print('  void migrateTasks(string targetHostName, i32 executorId, i32 routeNo)')
   print('  void createRouting(string hostName, i32 taskid, i32 routeNo, string type)')
   print('  void withdrawRemoteRoute(i32 taskid, i32 route)')
   print('  double reportTaskThroughput(i32 taskid)')

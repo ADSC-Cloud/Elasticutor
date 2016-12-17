@@ -273,8 +273,8 @@ public class Slave extends UntypedActor {
             } else if (message instanceof ScalingInSubtaskCommand) {
                 System.out.println("[Elastic]: received  ScalingInSubtaskCommand!");
                 getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
-//                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
-//                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).taskId), getSelf());
+//                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).executorId), getSelf());
+//                getSender().tell(ElasticTaskHolder.instance().handleScalingInSubtaskCommand(((ScalingInSubtaskCommand) message).executorId), getSelf());
                 sendMessageObjectToMaster("ScalingInSubtaskCommand has been sent!");
                 System.out.println("[Elastic]: handled  ScalingInSubtaskCommand!");
             } else if (message instanceof SubtaskLevelLoadBalancingCommand) {

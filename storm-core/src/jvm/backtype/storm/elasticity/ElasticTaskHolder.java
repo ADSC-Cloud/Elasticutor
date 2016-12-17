@@ -449,9 +449,9 @@ public class ElasticTaskHolder {
 //                                sendMessageToMaster("CleanPendingTuplesToken will be sent!");
                                 CleanPendingTupleToken cleanPendingTupleToken = (CleanPendingTupleToken) message;
                                 byte[] bytes = SerializationUtils.serialize(cleanPendingTupleToken);
-                                IConnection connection = _taskidRouteToConnection.get(cleanPendingTupleToken.taskId+"."+cleanPendingTupleToken.routeId);
+                                IConnection connection = _taskidRouteToConnection.get(cleanPendingTupleToken.executorId +"."+cleanPendingTupleToken.routeId);
                                 if(connection!=null) {
-                                    TaskMessage taskMessage = new TaskMessage(cleanPendingTupleToken.taskId, bytes);
+                                    TaskMessage taskMessage = new TaskMessage(cleanPendingTupleToken.executorId, bytes);
                                     insertToConnectionToTaskMessageArray(iConnectionNameToTaskMessageArray, connectionNameToIConnection, connection, taskMessage);
 
 //                                    System.out.println("CleanPendingTuplesToken is sent to " + connection.toString());
@@ -653,7 +653,7 @@ public class ElasticTaskHolder {
                         int targetTaskId = message.task();
 //                        System.out.println("Handling a new TaskMessage!");
                         if(message.task() >= 10000) {
-//                            System.out.println("Received a strange task with taskId + " + message.task());
+//                            System.out.println("Received a strange task with executorId + " + message.task());
                             int taskid = message.task() - 10000;
                             Tuple remoteTuple = tupleDeserializer.deserialize(message.message());
                             try {
@@ -725,7 +725,7 @@ public class ElasticTaskHolder {
                         } else if (object instanceof CleanPendingTupleToken) {
                             System.out.println("CleanPendingTupleToken");
                             CleanPendingTupleToken cleanPendingTupleToken = (CleanPendingTupleToken) object;
-                            final int taskId = cleanPendingTupleToken.taskId;
+                            final int taskId = cleanPendingTupleToken.executorId;
                             _originalTaskIdToRemoteTaskExecutor.get(taskId).get_inputQueue().put(cleanPendingTupleToken);
 //                            sendMessageToMaster("Received CleanPendingTupleToken");
 
@@ -813,9 +813,9 @@ public class ElasticTaskHolder {
             sendMessageToMaster(e.getMessage());
         }
 
-//        _bolts.get(taskId).get_elasticExecutor().get_routingTable().getRoutes().contains(routeId)
+//        _bolts.get(executorId).get_elasticExecutor().get_routingTable().getRoutes().contains(routeId)
 //
-//        if(_originalTaskIdToConnection.containsKey(taskId)) {
+//        if(_originalTaskIdToConnection.containsKey(executorId)) {
 //        }
 
     }
@@ -826,7 +826,7 @@ public class ElasticTaskHolder {
         }
         _taskIdRouteToCleanPendingTupleSemaphore.get(message.taskId+"."+message.routeId).release();
         System.out.println("PendingTupleCleanedMessage is received for " + message.taskId+"."+message.routeId );
-//        sendMessageToMaster("PendingTupleCleanedMessage is received for " + message.taskId+"."+message.routeId);
+//        sendMessageToMaster("PendingTupleCleanedMessage is received for " + message.executorId+"."+message.routeId);
     }
 
     private void handleStateFlushToken(StateFlushToken token) {
@@ -855,14 +855,14 @@ public class ElasticTaskHolder {
     }
 
     private void handleCleanPendingTupleToken(CleanPendingTupleToken token) {
-        if(!_originalTaskIdToRemoteTaskExecutor.containsKey(token.taskId)) {
-            sendMessageToMaster("Task " + token.taskId + " does not exist!");
+        if(!_originalTaskIdToRemoteTaskExecutor.containsKey(token.executorId)) {
+            sendMessageToMaster("Task " + token.executorId + " does not exist!");
         }
         System.out.println("to handle handleCleanPendingTupleToken");
-        _originalTaskIdToRemoteTaskExecutor.get(token.taskId)._elasticExecutor.makesSureNoPendingTuples(token.routeId);
-        System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.taskId, token.routeId));
-        PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.taskId, token.routeId);
-        _originalTaskIdToPriorityConnection.get(token.taskId).send(token.taskId, SerializationUtils.serialize(message));
+        _originalTaskIdToRemoteTaskExecutor.get(token.executorId)._elasticExecutor.makesSureNoPendingTuples(token.routeId);
+        System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.executorId, token.routeId));
+        PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.executorId, token.routeId);
+        _originalTaskIdToPriorityConnection.get(token.executorId).send(token.executorId, SerializationUtils.serialize(message));
 //        sendMessageToMaster("PendingTupleCleanedMessage is sent back!");
     }
 
@@ -871,12 +871,12 @@ public class ElasticTaskHolder {
         if(_bolts.containsKey(taskId)) {
             ret = _bolts.get(taskId).get_elasticExecutor().get_bolt().getState();
             if(ret == null)
-                sendMessageToMaster("_bolts.get(taskId).get_elasticExecutor().get_bolt().getState() is null!");
+                sendMessageToMaster("_bolts.get(executorId).get_elasticExecutor().get_bolt().getState() is null!");
         }
         else if (_originalTaskIdToRemoteTaskExecutor.containsKey(taskId)) {
             ret = _originalTaskIdToRemoteTaskExecutor.get(taskId)._bolt.getState();
             if(ret == null) {
-                sendMessageToMaster("_originalTaskIdToRemoteTaskExecutor.get(taskId)._bolt.getState() is null!");
+                sendMessageToMaster("_originalTaskIdToRemoteTaskExecutor.get(executorId)._bolt.getState() is null!");
             }
         } else {
             sendMessageToMaster("State is not found for Task " + taskId);
@@ -1437,11 +1437,11 @@ public class ElasticTaskHolder {
         else {
             sendMessageToMaster("Waiting for confirm message time out!");
         }
-//        RemoteState remoteState = new RemoteState(taskId, state, routeId);
+//        RemoteState remoteState = new RemoteState(executorId, state, routeId);
         SmartTimer.getInstance().stop("SubtaskMigrate", "reconnect");
 //        sendMessageToMaster(SmartTimer.getInstance().getTimerString("SubtaskMigrate"));
 //        _slaveActor.sendMessageToNode(targetHost, new TestAliveMessage("local to remote migration completes!"));
-//        _taskidRouteToConnection.get(taskId + "." + routeId).send(taskId, SerializationUtils.serialize(remoteState));
+//        _taskidRouteToConnection.get(executorId + "." + routeId).send(executorId, SerializationUtils.serialize(remoteState));
     }
 
     private void handleElasticTaskMigrationConfirmMessage(ElasticTaskMigrationConfirmMessage confirmMessage) {
@@ -1855,9 +1855,9 @@ public class ElasticTaskHolder {
                         for(int taskId: _bolts.keySet()) {
                             int currentParallelism = _bolts.get(taskId).getCurrentParallelism();
                             int desirableParallelism = _bolts.get(taskId).getDesirableParallelism();
-//                            sendMessageToMaster("Task: " + taskId + " average latency: " + _bolts.get(taskId).getMetrics().getAverageLatency());
-//                            sendMessageToMaster("Task: " + taskId + " rate: " + _bolts.get(taskId).getInputRate());
-//                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" + desirableParallelism);
+//                            sendMessageToMaster("Task: " + executorId + " average latency: " + _bolts.get(executorId).getMetrics().getAverageLatency());
+//                            sendMessageToMaster("Task: " + executorId + " rate: " + _bolts.get(executorId).getInputRate());
+//                            sendMessageToMaster("Task " + executorId + ":  " + currentParallelism + "---->" + desirableParallelism);
                             if(currentParallelism < desirableParallelism) {
                                 ExecutorScalingOutRequestMessage requestMessage = new ExecutorScalingOutRequestMessage(taskId);
                                 _slaveActor.sendMessageObjectToMaster(requestMessage);

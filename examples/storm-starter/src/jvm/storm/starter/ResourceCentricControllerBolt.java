@@ -494,7 +494,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
             if(skewness) {
 
-//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(taskId, histograms, numberOfRoutes, balancedHashRouting.getBucketToRouteMapping());
+//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(executorId, histograms, numberOfRoutes, balancedHashRouting.getBucketToRouteMapping());
                     ShardReassignmentPlan plan = ElasticScheduler.getMinimizedShardToTaskReassignment(0, routingTable.getNumberOfRoutes(), routingTable.getBucketToRouteMapping(), histograms);
 
                 SmartTimer.getInstance().stop("Load Balancing", "Algorithm");

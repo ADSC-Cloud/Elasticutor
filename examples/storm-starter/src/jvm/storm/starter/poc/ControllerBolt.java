@@ -230,7 +230,7 @@ public class ControllerBolt extends BaseRichBolt implements ResourceCentricContr
 
             if(skewness) {
 
-//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(taskId, histograms, numberOfRoutes, balancedHashRouting.getBucketToRouteMapping());
+//                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(executorId, histograms, numberOfRoutes, balancedHashRouting.getBucketToRouteMapping());
                 ShardReassignmentPlan plan = ElasticScheduler.getMinimizedShardToTaskReassignment(0, routingTable.getNumberOfRoutes(), routingTable.getBucketToRouteMapping(), histograms);
 
                 SmartTimer.getInstance().stop("Load Balancing", "Algorithm");

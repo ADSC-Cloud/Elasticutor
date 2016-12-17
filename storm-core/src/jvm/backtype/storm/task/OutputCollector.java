@@ -109,7 +109,7 @@ public class OutputCollector implements IOutputCollector {
      * an error will occur at runtime. The emitted values must be 
      * immutable.
      *
-     * @param taskId the taskId to send the new tuple to
+     * @param taskId the executorId to send the new tuple to
      * @param streamId the stream to send the tuple on. It must be declared as a direct stream in the topology definition.
      * @param anchor the tuple to anchor to
      * @param tuple the new output tuple from this bolt
@@ -127,7 +127,7 @@ public class OutputCollector implements IOutputCollector {
      * so downstream failures won't affect the failure status of any spout tuples.
      * The emitted values must be immutable.
      *
-     * @param taskId the taskId to send the new tuple to
+     * @param taskId the executorId to send the new tuple to
      * @param streamId the stream to send the tuple on. It must be declared as a direct stream in the topology definition.
      * @param tuple the new output tuple from this bolt
      */
@@ -147,7 +147,7 @@ public class OutputCollector implements IOutputCollector {
      * See OutputDeclarer#declare for how this is done when defining topologies
      * in Java.</p>
      *
-     * @param taskId the taskId to send the new tuple to
+     * @param taskId the executorId to send the new tuple to
      * @param anchosr the tuples to anchor to
      * @param tuple the new output tuple from this bolt
      */
@@ -167,7 +167,7 @@ public class OutputCollector implements IOutputCollector {
      * See OutputDeclarer#declare for how this is done when defining topologies
      * in Java.</p>
      *
-     * @param taskId the taskId to send the new tuple to
+     * @param taskId the executorId to send the new tuple to
      * @param anchor the tuple to anchor to
      * @param tuple the new output tuple from this bolt
      */
@@ -191,7 +191,7 @@ public class OutputCollector implements IOutputCollector {
      * <p>Note that this method does not use anchors, so downstream failures won't
      * affect the failure status of any spout tuples.</p>
      *
-     * @param taskId the taskId to send the new tuple to
+     * @param taskId the executorId to send the new tuple to
      * @param tuple the new output tuple from this bolt
      */
     public void emitDirect(int taskId, List<Object> tuple) {

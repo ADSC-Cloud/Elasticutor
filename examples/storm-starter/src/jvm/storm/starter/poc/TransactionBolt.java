@@ -180,7 +180,7 @@ public class TransactionBolt extends BaseElasticBolt{
                 int sourceTaskOffset = input.getInteger(0);
                 int targetTaskOffset = input.getInteger(1);
                 int shardId = input.getInteger(2);
-//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", taskId, shardId, sourceTaskOffset, targetTaskOffset));
+//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", executorId, shardId, sourceTaskOffset, targetTaskOffset));
 
                 // received the migration command from each of the upstream tasks.
                 receivedMigrationCommand = 0;

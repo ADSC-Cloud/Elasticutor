@@ -66,7 +66,7 @@ public class ElasticExecutorInfo {
 
     public void updateDesirableParallelism(int desirableParallelism) {
         this.desirableParallelism = desirableParallelism;
-//        System.out.println(String.format("Desirable DOP of Task %d is %d.", taskId, desirableParallelism));
+//        System.out.println(String.format("Desirable DOP of Task %d is %d.", executorId, desirableParallelism));
     }
 
     public int getCurrentParallelism() {
@@ -109,7 +109,7 @@ public class ElasticExecutorInfo {
     public String toString() {
         String ret = "";
         ret += String.format("{%d, %d, %.2f, %d -> %d}", taskId, stateSize, dataIntensivenessFactor, getCurrentParallelism(), desirableParallelism);
-//        ret += String.format("ID = %d, State size = %d, Data-intensiveness = %.2f", taskId, stateSize, dataIntensivenessFactor);
+//        ret += String.format("ID = %d, State size = %d, Data-intensiveness = %.2f", executorId, stateSize, dataIntensivenessFactor);
 
         return ret;
     }

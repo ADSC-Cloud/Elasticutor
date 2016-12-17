@@ -76,10 +76,10 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
             int targetTaskOffset = tuple.getInteger(1);
             int shardId = tuple.getInteger(2);
             if(receivedMigrationCommand == 1) {
-//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", taskId, shardId, sourceTaskOffset, targetTaskOffset));
+//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", executorId, shardId, sourceTaskOffset, targetTaskOffset));
             }
             if(receivedMigrationCommand==upstreamTaskIds.size()) {
-//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", taskId, shardId, sourceTaskOffset, targetTaskOffset));
+//                Slave.getInstance().logOnMaster(String.format("Task %d Received StateMigrationCommand %d: %d--->%d.", executorId, shardId, sourceTaskOffset, targetTaskOffset));
 
                 // received the migration command from each of the upstream tasks.
                 receivedMigrationCommand = 0;
@@ -102,7 +102,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
             long pruncutation = tuple.getLong(0);
             int taskid = tuple.getInteger(1);
             collector.emitDirect(taskid, ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm, new Values(pruncutation));
-//            Slave.getInstance().logOnMaster(String.format("PRUN %d is sent back to %d by %d", pruncutation, taskid, taskId));
+//            Slave.getInstance().logOnMaster(String.format("PRUN %d is sent back to %d by %d", pruncutation, taskid, executorId));
         }
     }
 

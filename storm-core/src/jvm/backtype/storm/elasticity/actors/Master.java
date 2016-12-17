@@ -313,7 +313,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
 //            handleExecutorScalingInRequest(requestMessage.taskID);
         } else if (message instanceof ExecutorScalingOutRequestMessage) {
             ExecutorScalingOutRequestMessage requestMessage = (ExecutorScalingOutRequestMessage) message;
-//            handleExecutorScalingOutRequest(requestMessage.taskId);
+//            handleExecutorScalingOutRequest(requestMessage.executorId);
             ElasticScheduler.getInstance().addScalingRequest(requestMessage);
         } else if (message instanceof ElasticExecutorMetricsReportMessage) {
             ElasticExecutorMetricsReportMessage elasticExecutorMetricsReportMessage = (ElasticExecutorMetricsReportMessage) message;
@@ -358,7 +358,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
 
 
 //            System.out.println("Current Routing Table: ");
-//            System.out.println(getOriginalRoutingTable(taskId));
+//            System.out.println(getOriginalRoutingTable(executorId));
 //            System.out.println("=====================================\n");
         } catch (Exception e) {
             e.printStackTrace();
@@ -585,7 +585,7 @@ public class Master extends UntypedActor implements MasterService.Iface {
         if(!_nameToPath.containsKey(getHostByWorkerLogicalName(targetWorkerLogicalName)))
             throw new MigrationException("targetHostName " + targetWorkerLogicalName + " does not exists!");
         try {
-//            getContext().actorFor(_nameToPath.get(_taskidToActorName.get(taskId))).tell(new TaskMigrationCommand(getHostByWorkerLogicalName(originalHostName), getHostByWorkerLogicalName(targetHostName), taskId, routeNo), getSelf());
+//            getContext().actorFor(_nameToPath.get(_taskidToActorName.get(executorId))).tell(new TaskMigrationCommand(getHostByWorkerLogicalName(originalHostName), getHostByWorkerLogicalName(targetHostName), executorId, routeNo), getSelf());
 //            log("[Elastic]: Migration message has been sent!");
 
 //            final Inbox inbox = Inbox.create(getContext().system());
