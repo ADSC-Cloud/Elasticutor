@@ -40,7 +40,6 @@ public class ElasticRemoteTaskExecutor {
     private Thread _inputRoutingThread;
 
     private Thread _stateCheckpointingThread;
-    private StateCheckoutPointing _checkPointing;
 
     public ElasticRemoteTaskExecutor(ElasticExecutor tasks, ArrayBlockingQueue resultQueue, BaseElasticBolt bolt ) {
         _elasticExecutor = tasks;
@@ -73,8 +72,8 @@ public class ElasticRemoteTaskExecutor {
     }
 
     public void createStateCheckpointingThread() {
-        _checkPointing = new StateCheckoutPointing(Config.StateCheckPointingCycleInSecs);
-        _stateCheckpointingThread = new Thread(_checkPointing);
+        final StateCheckoutPointing checkPointing = new StateCheckoutPointing(Config.StateCheckPointingCycleInSecs);
+        _stateCheckpointingThread = new Thread(checkPointing);
         _stateCheckpointingThread.start();
 
         System.out.println("state checkpointing thread is created");
