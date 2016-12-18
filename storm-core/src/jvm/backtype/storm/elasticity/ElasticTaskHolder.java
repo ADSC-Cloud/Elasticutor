@@ -144,7 +144,6 @@ public class ElasticTaskHolder {
             while (connection.status() != Client.Status.Ready)
                 Utils.sleep(1);
             _taskidRouteToConnection.put(taksId + "." + route, connection);
-//        connection.send(0, SerializationUtils.serialize("Hello!"));
             System.out.println("Established connection with remote task holder for " + taksId + "." + route);
 //        sendMessageToMaster("Established connection with remote task holder for " + taksId + "." + route + " on " + remoteIp + ":" + remotePort);
         }
