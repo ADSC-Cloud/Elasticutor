@@ -14,8 +14,6 @@ import backtype.storm.elasticity.utils.MonitorUtils;
 import backtype.storm.tuple.Tuple;
 
 import java.io.Serializable;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,13 +43,13 @@ public class ElasticExecutor implements Serializable {
 
     private transient ElasticOutputCollector _elasticOutputCollector;
 
-    private transient ArrayBlockingQueue<ITaskMessage> _remoteTaskSharedInputQueue;
+    private transient ArrayBlockingQueue<ITaskMessage> _reroutingTupleSendingQueue;
 
     private transient ElasticTaskHolder _taskHolder;
 
     private boolean remote = false;
 
-    long lastCpuTime = 0;
+    private Random _random;
 
 
     public ElasticExecutor(BaseElasticBolt bolt, Integer taskID, RoutingTable routingTable) {
@@ -70,16 +68,17 @@ public class ElasticExecutor implements Serializable {
         _taskIdToThread = new HashMap<>();
         _taskIdToQueryRunnable = new HashMap<>();
         _elasticOutputCollector = elasticOutputCollector;
-        _taskHolder=ElasticTaskHolder.instance();
+        _taskHolder = ElasticTaskHolder.instance();
+        _random = new Random();
     }
 
     public void prepare(ElasticOutputCollector elasticOutputCollector, KeyValueState state) {
         _bolt.setState(state);
-        _localTaskIdToInputQueue = new HashMap<>();
-        _taskIdToThread = new HashMap<>();
-        _taskIdToQueryRunnable = new HashMap<>();
-        _elasticOutputCollector = elasticOutputCollector;
-        _taskHolder=ElasticTaskHolder.instance();
+        prepare(elasticOutputCollector);
+    }
+
+    public void set_reroutingTupleSendingQueue(ArrayBlockingQueue<ITaskMessage> reroutingTupleSendingQueue) {
+        _reroutingTupleSendingQueue = reroutingTupleSendingQueue;
     }
 
     public RoutingTable get_routingTable() {
@@ -109,21 +108,20 @@ public class ElasticExecutor implements Serializable {
                     return false;
                 }
 
-                if(new Random().nextInt(5000)==0)
+                if(_random.nextInt(5000)==0)
                     System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, route.originalRoute));
-
 
                 RemoteTuple remoteTuple = new RemoteTuple(_id, route.originalRoute, tuple);
 
                 try {
-                    _remoteTaskSharedInputQueue.put(remoteTuple);
+                    _reroutingTupleSendingQueue.put(remoteTuple);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 return true;
             } else {
                 try {
-                    if(new Random().nextInt(5000)==0)
+                    if(_random.nextInt(5000)==0)
                         System.out.println("A tuple is route to "+route+ " by the routing table!");
                     _localTaskIdToInputQueue.get(route.route).put(tuple);
 //                System.out.println("A tuple is inserted into the processing queue!");
@@ -199,7 +197,7 @@ public class ElasticExecutor implements Serializable {
                 throw new InvalidRouteException("input route " + i + "is invalid");
             }
         }
-        _remoteTaskSharedInputQueue = exceptedRoutingQueue;
+        _reroutingTupleSendingQueue = exceptedRoutingQueue;
 
         if(!(_routingTable instanceof PartialHashingRouting)) {
             _routingTable = new PartialHashingRouting(_routingTable);
