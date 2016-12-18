@@ -154,6 +154,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
+        _holder = ElasticTaskHolder.instance();
         metrics = new ElasticExecutorMetrics();
         _resultQueue = new ArrayBlockingQueue<TupleExecuteResult>(Config.ResultQueueCapacity);
         _outputCollector = new ElasticOutputCollector(_resultQueue);
@@ -165,12 +166,13 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //        _elasticExecutor.prepare(_outputCollector);
         _taskId = context.getThisTaskId();
         _elasticExecutor = ElasticExecutor.createHashRouting(1,_bolt,_taskId, _outputCollector);
+        _elasticExecutor.set_reroutingTupleSendingQueue(_holder._sendingQueue);
 //        createTest();
 //        _elasticExecutor = ElasticExecutor.createVoidRouting(_bolt, _taskId, _outputCollector);
         _inputRateTracker = new RateTracker(3000, 5);
         _outputRateTracker = new RateTracker(3000, 5);
         tupleLengthSampleEveryNTuples = (int) (1 / Config.tupleLengthSampleRate);
-        _holder = ElasticTaskHolder.instance();
+
         tupleSerializer = _holder.getTupleSerializer();
         inputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
         outputTupleLengthHistory = new ArrayBlockingQueue<>(1024);
@@ -180,10 +182,8 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                 pendingTupleQueueCapacity, null, 0.9, 5);
         createInputTupleRoutingThread();
 
+        _holder.registerElasticBolt(this, _taskId);
 
-        if(_holder!=null) {
-            _holder.registerElasticBolt(this, _taskId);
-        }
     }
 
     private boolean isSaturated() {

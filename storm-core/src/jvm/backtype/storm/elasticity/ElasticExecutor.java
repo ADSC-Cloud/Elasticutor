@@ -58,10 +58,23 @@ public class ElasticExecutor implements Serializable {
         _routingTable = routingTable;
     }
 
+    public static ElasticExecutor createHashRouting(int numberOfRoutes, BaseElasticBolt bolt, int taskID, ElasticOutputCollector collector) {
+        RoutingTable routingTable = new TwoTireRouting(numberOfRoutes);
+        ElasticExecutor ret = new ElasticExecutor(bolt, taskID, routingTable);
+        ret.prepare(collector);
+        ret.createAndLaunchLocalTasks();
+        return ret;
+    }
+
+    public static ElasticExecutor createVoidRouting(BaseElasticBolt bolt, int taskID, ElasticOutputCollector collector) {
+        ElasticExecutor ret = new ElasticExecutor(bolt, taskID, new VoidRouting());
+        ret.prepare(collector);
+        return ret;
+    }
+
     public void setRemoteElasticTasks() {
         remote = true;
     }
-
 
     public void prepare(ElasticOutputCollector elasticOutputCollector) {
         _localTaskIdToInputQueue = new HashMap<>();
@@ -108,7 +121,7 @@ public class ElasticExecutor implements Serializable {
                     return false;
                 }
 
-                if(_random.nextInt(5000)==0)
+                if (_random.nextInt(5000) == 0)
                     System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, route.originalRoute));
 
                 RemoteTuple remoteTuple = new RemoteTuple(_id, route.originalRoute, tuple);
@@ -121,8 +134,8 @@ public class ElasticExecutor implements Serializable {
                 return true;
             } else {
                 try {
-                    if(_random.nextInt(5000)==0)
-                        System.out.println("A tuple is route to "+route+ " by the routing table!");
+                    if (_random.nextInt(5000) == 0)
+                        System.out.println("A tuple is route to " + route + " by the routing table!");
                     _localTaskIdToInputQueue.get(route.route).put(tuple);
 //                System.out.println("A tuple is inserted into the processing queue!");
                 } catch (InterruptedException e) {
@@ -133,31 +146,16 @@ public class ElasticExecutor implements Serializable {
         }
     }
 
-    public static ElasticExecutor createHashRouting(int numberOfRoutes, BaseElasticBolt bolt, int taskID, ElasticOutputCollector collector) {
-        RoutingTable routingTable = new TwoTireRouting(numberOfRoutes);
-        ElasticExecutor ret = new ElasticExecutor(bolt, taskID, routingTable);
-        ret.prepare(collector);
-        ret.createAndLaunchLocalTasks();
-        return ret;
-    }
-
-    public static ElasticExecutor createVoidRouting(BaseElasticBolt bolt, int taskID, ElasticOutputCollector collector ) {
-        ElasticExecutor ret = new ElasticExecutor(bolt, taskID, new VoidRouting());
-        ret.prepare(collector);
-        return ret;
-    }
-
     public void createAndLaunchLocalTasks() {
-        for(int i : get_routingTable().getRoutes())
-        {
+        for (int i : get_routingTable().getRoutes()) {
             createElasticTasksForGivenRoute(i);
             launchElasticTasksForGivenRoute(i);
         }
     }
 
     public void createElasticTasksForGivenRoute(int i) {
-        if(!_routingTable.getRoutes().contains(i)) {
-            System.out.println("Cannot create tasks for route "+i+", because it is not valid!");
+        if (!_routingTable.getRoutes().contains(i)) {
+            System.out.println("Cannot create tasks for route " + i + ", because it is not valid!");
             return;
         }
         ArrayBlockingQueue<Tuple> inputQueue = new ArrayBlockingQueue<>(Config.SubtaskInputQueueCapacity);
@@ -173,8 +171,9 @@ public class ElasticExecutor implements Serializable {
         _taskIdToThread.put(i, newThread);
 //        MonitorUtils.instance().registerThreadMonitor(newThread.getId(), "query route " + i, -1, 5);
 //        System.out.println("created elastic worker threads for route "+i);
-        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _id, newThread.getId(), i, _elasticOutputCollector));
-        ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route "+i);
+        System.out.println(String.format("Task %d created elastic worker thread (%xd) for route %d (%s)", _id,
+                newThread.getId(), i, _elasticOutputCollector));
+        ElasticTaskHolder.instance().sendMessageToMaster("created elastic worker threads for route " + i);
         ElasticTaskHolder.instance()._slaveActor.registerRoutesOnMaster(_id, i);
     }
 
@@ -184,31 +183,32 @@ public class ElasticExecutor implements Serializable {
     }
 
     /**
-     *
      * @param list list of exception routes
      * @return a PartialHashRouting that routes the excepted routes
      */
-    public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list, ArrayBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
-        if((!(_routingTable instanceof HashingRouting))&&(!(_routingTable instanceof TwoTireRouting))&&(!(_routingTable instanceof PartialHashingRouting))) {
-            throw new RoutingTypeNotSupportedException("cannot set Exception for non-hash routing: " + _routingTable.getClass().toString());
+    public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list)
+            throws InvalidRouteException, RoutingTypeNotSupportedException {
+        if ((!(_routingTable instanceof HashingRouting)) && (!(_routingTable instanceof TwoTireRouting))
+                && (!(_routingTable instanceof PartialHashingRouting))) {
+            throw new RoutingTypeNotSupportedException("cannot set Exception for non-hash routing: "
+                    + _routingTable.getClass().toString());
         }
-        for(int i: list) {
-            if(!_routingTable.getRoutes().contains(i)) {
+        for (int i : list) {
+            if (!_routingTable.getRoutes().contains(i)) {
                 throw new InvalidRouteException("input route " + i + "is invalid");
             }
         }
-        _reroutingTupleSendingQueue = exceptedRoutingQueue;
 
-        if(!(_routingTable instanceof PartialHashingRouting)) {
+        if (!(_routingTable instanceof PartialHashingRouting)) {
             _routingTable = new PartialHashingRouting(_routingTable);
         }
 
-        ((PartialHashingRouting)_routingTable).addExceptionRoutes(list);
-        for(int i: list) {
+        ((PartialHashingRouting) _routingTable).addExceptionRoutes(list);
+        for (int i : list) {
             terminateGivenQuery(i);
         }
 
-        PartialHashingRouting ret = ((PartialHashingRouting)_routingTable).createComplementRouting();
+        PartialHashingRouting ret = ((PartialHashingRouting) _routingTable).createComplementRouting();
 
 //        ret.invalidAllRoutes();
 //        ret.addValidRoutes(list);
@@ -216,20 +216,22 @@ public class ElasticExecutor implements Serializable {
         return ret;
     }
 
-    public PartialHashingRouting addExceptionForHashRouting(int r, ArrayBlockingQueue<ITaskMessage> exceptedRoutingQueue) throws InvalidRouteException, RoutingTypeNotSupportedException {
+    public PartialHashingRouting addExceptionForHashRouting(int r)
+            throws InvalidRouteException, RoutingTypeNotSupportedException {
         ArrayList<Integer> list = new ArrayList<>();
         list.add(r);
-        return addExceptionForHashRouting(list, exceptedRoutingQueue);
+        return addExceptionForHashRouting(list);
     }
 
     /**
      * add a valid route to the routing table, but does not create the processing thread.
      * In fact, the processing thread can only be created when the remote state is merged with
      * local state, which should be handled by the callee.
+     *
      * @param route route to be added
      */
     public synchronized void addValidRoute(int route) throws RoutingTypeNotSupportedException {
-        if(!(_routingTable instanceof PartialHashingRouting)) {
+        if (!(_routingTable instanceof PartialHashingRouting)) {
             System.err.println("can only add valid route for PartialHashRouting");
             throw new RoutingTypeNotSupportedException("can only add valid route for PartialHashRouting!");
         }
@@ -253,7 +255,7 @@ public class ElasticExecutor implements Serializable {
 
     public synchronized void setHashRouting(int numberOfRoutes) throws IllegalArgumentException {
         long start = System.nanoTime();
-        if(numberOfRoutes < 0)
+        if (numberOfRoutes < 0)
             throw new IllegalArgumentException("number of routes should be positive");
         withdrawRoutes();
         long withdrawTime = System.nanoTime() - start;
@@ -263,12 +265,13 @@ public class ElasticExecutor implements Serializable {
 
         long totalTime = System.nanoTime() - start;
 
-        Slave.getInstance().sendMessageToMaster("Terminate: " + withdrawTime / 1000 + " us\tLaunch: " + (totalTime - withdrawTime) / 1000 + "us\t total: " + totalTime / 1000);
+        Slave.getInstance().sendMessageToMaster("Terminate: " + withdrawTime / 1000 + " us\tLaunch: " +
+                (totalTime - withdrawTime) / 1000 + "us\t total: " + totalTime / 1000);
 
     }
 
     public void setVoidRounting() {
-        if(!(_routingTable instanceof VoidRouting)) {
+        if (!(_routingTable instanceof VoidRouting)) {
             terminateQueries();
             _routingTable = new VoidRouting();
         }
@@ -284,11 +287,12 @@ public class ElasticExecutor implements Serializable {
 
 
     public void terminateGivenQuery(int route) {
-//        ElasticTaskHolder.instance().sendMessageToMaster("Terminating "+_taskID+"."+route + " (" + _queues.get(route).size() + " pending elements)"+" ...");
+//        ElasticTaskHolder.instance().sendMessageToMaster("Terminating "+_taskID+"."+route +
+// " (" + _queues.get(route).size() + " pending elements)"+" ...");
         _taskIdToQueryRunnable.get(route).terminate();
         try {
             _taskIdToThread.get(route).join();
-            System.out.println("Query thread for "+ _id +"."+route + " is terminated!");
+            System.out.println("Query thread for " + _id + "." + route + " is terminated!");
 //            ElasticTaskHolder.instance().sendMessageToMaster("Query thread for "+_taskID+"."+route + " is terminated!");
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -306,12 +310,12 @@ public class ElasticExecutor implements Serializable {
         System.out.println("##########before termination!");
 
         // withdraw remote tasks.
-        if(_routingTable instanceof PartialHashingRouting) {
+        if (_routingTable instanceof PartialHashingRouting) {
             PartialHashingRouting partialHashingRouting = (PartialHashingRouting) _routingTable;
-            for(int i: partialHashingRouting.getExceptionRoutes()) {
+            for (int i : partialHashingRouting.getExceptionRoutes()) {
                 try {
                     ElasticTaskHolder.instance().withdrawRemoteElasticTasks(get_id(), i);
-                } catch(Exception e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -323,15 +327,15 @@ public class ElasticExecutor implements Serializable {
     }
 
     private void terminateQueries() {
-        for(int i: _routingTable.getRoutes())
+        for (int i : _routingTable.getRoutes())
             terminateGivenQuery(i);
     }
 
     public ExecutionLatencyForRoutes getExecutionLatencyForRoutes() {
         ExecutionLatencyForRoutes latencyForRoutes = new ExecutionLatencyForRoutes();
-        for(Integer routeId: _taskIdToQueryRunnable.keySet()) {
+        for (Integer routeId : _taskIdToQueryRunnable.keySet()) {
             Long averageExecutionLatency = _taskIdToQueryRunnable.get(routeId).getAverageExecutionLatency();
-            if(averageExecutionLatency != null)
+            if (averageExecutionLatency != null)
                 latencyForRoutes.add(routeId, averageExecutionLatency);
         }
         return latencyForRoutes;
@@ -339,7 +343,7 @@ public class ElasticExecutor implements Serializable {
 
     public ThroughputForRoutes getThroughputForRoutes() {
         ThroughputForRoutes throughputForRoutes = new ThroughputForRoutes();
-        for(int route: _taskIdToQueryRunnable.keySet()) {
+        for (int route : _taskIdToQueryRunnable.keySet()) {
             double throughput = _taskIdToQueryRunnable.get(route).getThroughput();
             throughputForRoutes.add(route, throughput);
         }
@@ -347,21 +351,23 @@ public class ElasticExecutor implements Serializable {
     }
 
     public void makesSureNoPendingTuples(int routeId) {
-        if(!_localTaskIdToInputQueue.containsKey(routeId)) {
+        if (!_localTaskIdToInputQueue.containsKey(routeId)) {
             System.err.println(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!", routeId));
-            Slave.getInstance().logOnMaster(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!", routeId));
+            Slave.getInstance().logOnMaster(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!",
+                    routeId));
             return;
         }
 //        Slave.getInstance().sendMessageToMaster("Cleaning...." + this._taskID + "." + routeId);
         Long startTime = null;
-        while(!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
+        while (!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
             Utils.sleep(1);
-            if(startTime == null) {
+            if (startTime == null) {
                 startTime = System.currentTimeMillis();
             }
 
-            if(System.currentTimeMillis() - startTime > 1000) {
-                Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() + "  tuples remaining in " + this._id + "." + routeId);
+            if (System.currentTimeMillis() - startTime > 1000) {
+                Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() +
+                        "  tuples remaining in " + this._id + "." + routeId);
                 startTime = System.currentTimeMillis();
             }
         }
