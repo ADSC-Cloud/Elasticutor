@@ -89,7 +89,6 @@ public class ElasticTaskHolder {
 
     private RemoteTupleExecuteResultDeserializer remoteTupleExecuteResultDeserializer;
 
-
     Map<Integer, BaseElasticBoltExecutor> _bolts = new HashMap<>();
 
     Map<Integer, ElasticRemoteTaskExecutor> _originalTaskIdToRemoteTaskExecutor = new HashMap<>();

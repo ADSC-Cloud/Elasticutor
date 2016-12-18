@@ -51,7 +51,6 @@ public class ElasticExecutor implements Serializable {
 
     private boolean remote = false;
 
-    private boolean reportDispatchUtilizationNotificatoin = false;
     long lastCpuTime = 0;
 
 
@@ -88,16 +87,6 @@ public class ElasticExecutor implements Serializable {
     }
 
     public synchronized boolean tryHandleTuple(Tuple tuple, Object key) {
-
-        if(reportDispatchUtilizationNotificatoin) {
-            reportDispatchUtilizationNotificatoin = false;
-            ThreadMXBean tmxb = ManagementFactory.getThreadMXBean();
-
-            long cpuTime = tmxb.getThreadUserTime(Thread.currentThread().getId());
-            double utilization = (cpuTime - lastCpuTime) / 5E9;
-            lastCpuTime = cpuTime;
-            Slave.getInstance().sendMessageToMaster(String.format("Dispatch: %f", utilization));
-        }
 
         final long signature = _routingTable.getSigniture();
         RoutingTable.Route route = _routingTable.route(key);
