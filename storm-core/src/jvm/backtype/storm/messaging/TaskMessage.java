@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
 
 public class TaskMessage implements Serializable {
     private int _task;
-    public short remoteTuple = 0;
+    public short remoteTuple = -1;
     private byte[] _message;
 
     public TaskMessage(int task, byte[] message) {
@@ -65,6 +65,10 @@ public class TaskMessage implements Serializable {
         remoteTuple = 1;
     }
 
+    public String toString() {
+        return String.format("task = %d, remoteTuple = %d, message size = %d", _task, remoteTuple, _message.length);
+    }
+
     public static void main(String[] args) {
         String content = "Content";
         TaskMessage taskMessage = new TaskMessage(100, SerializationUtils.serialize(content));
@@ -79,7 +83,7 @@ public class TaskMessage implements Serializable {
         bytes.position(0);
         taskMessage1.deserialize(bytes);
 
-        System.out.println(taskMessage.remoteTuple);
+        System.out.println(taskMessage1);
     }
 
 }

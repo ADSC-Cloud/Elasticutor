@@ -105,14 +105,14 @@ public class ElasticExecutor implements Serializable {
         RoutingTable.Route route = _routingTable.route(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_id, route.originalRoute);
-//        System.out.println("bk 3");
+        System.out.println("bk 3");
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
-//            System.out.println("bk 4");
+            System.out.println("bk 4");
             // The routing table may be updated during the pausing phase, so we should recompute the route.
             if (paused && signature != _routingTable.getSigniture()) {
                 route = _routingTable.route(key);
             }
-//            System.out.println("bk 5");
+            System.out.println("bk 5");
             if (route.route == RoutingTable.remote) {
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticExecutor!\n", key);
@@ -134,7 +134,7 @@ public class ElasticExecutor implements Serializable {
                     }
 
 //                    _reroutingTupleSendingQueue.put(remoteTuple);
-//                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
+                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -142,13 +142,13 @@ public class ElasticExecutor implements Serializable {
             } else {
                 try {
 //                    if (_random.nextInt(5000) == 0)
-//                        System.out.println("A tuple is routed to " + route.route + " by the routing table!");
+                        System.out.println("A tuple is routed to " + route.route + " by the routing table!");
                     while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
                         System.out.println("Waiting for available space in _localTaskIdToInputQueue");
                     }
 //                    _localTaskIdToInputQueue.get(route.route).put(tuple);
 
-//                System.out.println("A tuple is inserted into the processing queue!");
+                System.out.println("A tuple is inserted into the processing queue!");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

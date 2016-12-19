@@ -73,17 +73,17 @@ public class Config {
 
     /* The following are the default value */
 
-    public static int NumberOfShard = 512;
+    public static int NumberOfShard = 256;
 
     public static double RoutingSamplingRate = 1.0;
 
-    public static int SubtaskInputQueueCapacity = 256;
+    public static int SubtaskInputQueueCapacity = 64;
 
-    public static int ResultQueueCapacity = 1024;
+    public static int ResultQueueCapacity = 256;
 
-    public static int RemoteExecutorInputQueueCapacity = 256;
+    public static int RemoteExecutorInputQueueCapacity = 64;
 
-    public static int ElasticTaskHolderOutputQueueCapacity = 10240;
+    public static int ElasticTaskHolderOutputQueueCapacity = 1024;
 
     public static int StateCheckPointingCycleInSecs = 10;
 

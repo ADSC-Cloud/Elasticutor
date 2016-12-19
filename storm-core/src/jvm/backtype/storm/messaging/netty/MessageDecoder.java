@@ -102,15 +102,14 @@ public class MessageDecoder extends FrameDecoder {
             // case 3: task message
             short task = code;
 
-            // Make sure that we have received at least an integer (length)
-//            if (available < 2) {
-//                // need more data
-//                buf.resetReaderIndex();
-//                break;
-//            }
-//            short remoteTuple = buf.readShort();
-//
-//            available -= 2;
+            if (available < 2) {
+                // need more data
+                buf.resetReaderIndex();
+                break;
+            }
+            short remoteTuple = buf.readShort();
+
+            available -= 2;
 
             // Make sure that we have received at least an integer (length)
             if (available < 4) {
@@ -124,7 +123,7 @@ public class MessageDecoder extends FrameDecoder {
             available -= 4;
 
             if (length <= 0) {
-                ret.add(new TaskMessage(task, null));
+                ret.add(new TaskMessage(task, remoteTuple, null));
                 break;
             }
 
@@ -142,7 +141,7 @@ public class MessageDecoder extends FrameDecoder {
 
             // Successfully decoded a frame.
             // Return a TaskMessage object
-            ret.add(new TaskMessage(task, payload.array()));
+            ret.add(new TaskMessage(task, remoteTuple, payload.array()));
         }
 
         if (ret.size() == 0) {

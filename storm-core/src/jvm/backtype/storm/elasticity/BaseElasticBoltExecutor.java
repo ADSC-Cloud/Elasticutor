@@ -209,10 +209,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                                     inputTupleLengthHistory.poll();
                                 }
                             }
+                            System.out.println("bk 1");
                             if (!_elasticExecutor.tryHandleTuple(input, key)) {
                                 System.err.println("elastic task fails to process a tuple!");
                                 assert (false);
                             }
+                            System.out.println("bk 10");
                             _inputRateTracker.notify(1);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
