@@ -216,22 +216,22 @@ public class Slave extends UntypedActor {
                 System.out.println("I received message " + message);
                 sendMessageToMaster("I received message " + message);
             } else if (message instanceof ThroughputQueryCommand) {
-                System.out.println("[Elastic]: received  ThroughputQueryCommand!");
+//                System.out.println("[Elastic]: received  ThroughputQueryCommand!");
                 ThroughputQueryCommand throughputQueryCommand = (ThroughputQueryCommand) message;
-                System.out.println(String.format("Received throughput query for task %d", throughputQueryCommand.taskid));
+//                System.out.println(String.format("Received throughput query for task %d", throughputQueryCommand.taskid));
 //                Slave.getInstance().logOnMaster(String.format("[Throughput:]Received throughput query for task %d", throughputQueryCommand.taskid));
                 double throughput = ElasticTaskHolder.instance().getThroughput(throughputQueryCommand.taskid);
-                System.out.println(String.format("Answered throughput query for task %d", throughputQueryCommand.taskid));
+//                System.out.println(String.format("Answered throughput query for task %d", throughputQueryCommand.taskid));
                 getSender().tell(throughput, getSelf());
-                System.out.println("[Elastic]: handled  ThroughputQueryCommand!");
+//                System.out.println("[Elastic]: handled  ThroughputQueryCommand!");
             } else if (message instanceof DistributionQueryCommand) {
-                System.out.println("[Elastic]: received  DistributionQueryCommand!");
+//                System.out.println("[Elastic]: received  DistributionQueryCommand!");
                 DistributionQueryCommand distributionQueryCommand = (DistributionQueryCommand)message;
                 Histograms distribution = ElasticTaskHolder.instance().getDistribution(distributionQueryCommand.taskid);
                 getSender().tell(distribution, getSelf());
-                System.out.println("[Elastic]: handled  DistributionQueryCommand!");
+//                System.out.println("[Elastic]: handled  DistributionQueryCommand!");
             } else if (message instanceof RoutingTableQueryCommand) {
-                System.out.println("[Elastic]: received  RoutingTableQueryCommand!");
+//                System.out.println("[Elastic]: received  RoutingTableQueryCommand!");
                 RoutingTableQueryCommand queryCommand = (RoutingTableQueryCommand)message;
                 RoutingTable queryResult;
                 if(queryCommand.completeRouting){
@@ -240,7 +240,7 @@ public class Slave extends UntypedActor {
                     queryResult = ElasticTaskHolder.instance().getOriginalRoutingTable(queryCommand.taskid);
                 }
                 getSender().tell(queryResult, getSelf());
-                System.out.println("[Elastic]: handled  RoutingTableQueryCommand!");
+//                System.out.println("[Elastic]: handled  RoutingTableQueryCommand!");
             } else if (message instanceof ReassignBucketToRouteCommand) {
                 System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
                 ReassignBucketToRouteCommand reassignBucketToRouteCommand = (ReassignBucketToRouteCommand) message;
@@ -249,11 +249,11 @@ public class Slave extends UntypedActor {
                 getSender().tell("Finished", getSelf());
                 System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
             } else if (message instanceof BucketDistributionQueryCommand) {
-                System.out.println("[Elastic]: received  BucketDistributionQueryCommand!");
+//                System.out.println("[Elastic]: received  BucketDistributionQueryCommand!");
 
                 BucketDistributionQueryCommand command = (BucketDistributionQueryCommand) message;
                 getSender().tell(ElasticTaskHolder.instance().getBucketDistributionForBalancedRoutingTable(command.taskid), getSelf());
-                System.out.println("[Elastic]: handled  BucketDistributionQueryCommand!");
+//                System.out.println("[Elastic]: handled  BucketDistributionQueryCommand!");
             } else if (message instanceof WorkerRegistrationResponseMessage) {
                 System.out.println("[Elastic]: received  WorkerRegistrationResponseMessage!");
                 WorkerRegistrationResponseMessage responseMessage = (WorkerRegistrationResponseMessage) message;

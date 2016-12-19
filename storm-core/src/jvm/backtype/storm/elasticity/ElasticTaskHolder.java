@@ -362,15 +362,12 @@ public class ElasticTaskHolder {
         resourceMonitor = new ResourceMonitor();
         createMetricsReportThread();
         createParallelismPredicationThread();
-        System.out.println(String.format("Sending Queue (%d)", _sendingQueue.hashCode()));
     }
 
     public void registerElasticBolt(BaseElasticBoltExecutor bolt, int taskId) {
         _bolts.put(taskId, bolt);
         _taskIdToRouteToSendingWaitingSemaphore.put(taskId, new ConcurrentHashMap<Integer, Semaphore>());
         _slaveActor.registerOriginalElasticTaskToMaster(taskId);
-        createQueueUtilizationMonitoringThread(_sendingQueue, "Sending Queue",
-                Config.ElasticTaskHolderOutputQueueCapacity, 0.9, null);
         LOG.info("A new ElasticTask is registered." + taskId);
     }
 
@@ -620,7 +617,7 @@ public class ElasticTaskHolder {
                                         handlePendingTupleCleanedMessage(cleanedMessage);
                                         System.out.println("[PrioritizedInput:] handled PendingTupleCleanedMessage!");
                                     } else if (object instanceof MetricsForRoutesMessage) {
-                                        System.out.println("[PrioritizedInput:] received MetricsForRoutesMessage!");
+//                                        System.out.println("[PrioritizedInput:] received MetricsForRoutesMessage!");
 //                                System.out.println("MetricsForRoutesMessage");
                                         MetricsForRoutesMessage latencyForRoutesMessage = (MetricsForRoutesMessage) object;
                                         int taskId = latencyForRoutesMessage.taskId;
@@ -628,7 +625,7 @@ public class ElasticTaskHolder {
                                         _bolts.get(taskId).updateLatencyMetrics(latencyForRoutesMessage.latencyForRoutes);
                                         _bolts.get(taskId).updateThroughputMetrics(latencyForRoutesMessage.throughputForRoutes);
 
-                                        System.out.println("[PrioritizedInput:] handled MetricsForRoutesMessage!");
+//                                        System.out.println("[PrioritizedInput:] handled MetricsForRoutesMessage!");
                                     } else {
                                         System.err.println(" -_- Priority input connection receives unexpected object: " + object);
                                         _slaveActor.sendMessageToMaster("-_- Priority input connection receives unexpected object: " + object);
@@ -1332,7 +1329,7 @@ public class ElasticTaskHolder {
         System.out.println("Resumed!");
         SmartTimer.getInstance().stop("ShardReassignment", "resume");
 //        sendMessageToMaster("Reassignment completes!");
-        _slaveActor.sendMessageToMaster(SmartTimer.getInstance().getTimerString("ShardReassignment"));
+//        _slaveActor.sendMessageToMaster(SmartTimer.getInstance().getTimerString("ShardReassignment"));
         System.out.println("===End Shard Reassignment " + bucketId + " " + taskid + "." + orignalRoute + "---->" + taskid + "." + targetRoute);
 
     }
@@ -1796,7 +1793,7 @@ public class ElasticTaskHolder {
 
 
             // We do not need to do shard reassignments, as this will be done by the load balancing mechanism.
-            plan.getReassignmentList().clear();
+//            plan.getReassignmentList().clear();
 
 
 //            sendMessageToMaster(String.format("Scaling out will conduct %d reassignments!", plan.getReassignmentList().size()));

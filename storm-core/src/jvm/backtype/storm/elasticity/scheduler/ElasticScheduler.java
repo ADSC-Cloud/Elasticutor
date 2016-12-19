@@ -553,14 +553,14 @@ public class ElasticScheduler {
         int totalMovements = plan.getReassignmentList().size();
         int i = 0;
         for(ShardReassignment reassignment: plan.getReassignmentList()) {
-            System.out.println("\n===================START========================");
-            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
+//            System.out.println("\n===================START========================");
+//            System.out.println("Begin to conduct the " + i++ + "th movements, " + totalMovements + " in total!");
             String from = master.getRouteHosterName(reassignment.taskId, reassignment.originalRoute);
             String to = master.getRouteHosterName(reassignment.taskId, reassignment.newRoute);
-            System.out.println("Movement: " + reassignment.toString());
-            System.out.println("From " + from + " to " + to);
+//            System.out.println("Movement: " + reassignment.toString());
+//            System.out.println("From " + from + " to " + to);
             master.reassignBucketToRoute(reassignment.taskId, reassignment.shardId, reassignment.originalRoute, reassignment.newRoute);
-            System.out.println("=====================END========================\n");
+//            System.out.println("=====================END========================\n");
         }
     }
 

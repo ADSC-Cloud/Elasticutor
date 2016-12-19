@@ -123,9 +123,9 @@ public class Config {
 
     public static int CPUBudget = 0;
 
-    public static String masterIp = "192.168.0.183";
+    public static String masterIp = "192.168.0.207";
 
-    public static String slaveIp = "192.168.0.183";
+    public static String slaveIp;
 
     public static boolean DisableDataIntensivenessInfo = false;
 

@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import backtype.storm.elasticity.state.*;
 import backtype.storm.utils.Utils;
@@ -104,13 +105,14 @@ public class ElasticExecutor implements Serializable {
         RoutingTable.Route route = _routingTable.route(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_id, route.originalRoute);
+//        System.out.println("bk 3");
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
-
+//            System.out.println("bk 4");
             // The routing table may be updated during the pausing phase, so we should recompute the route.
             if (paused && signature != _routingTable.getSigniture()) {
                 route = _routingTable.route(key);
             }
-
+//            System.out.println("bk 5");
             if (route.route == RoutingTable.remote) {
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticExecutor!\n", key);
@@ -127,16 +129,25 @@ public class ElasticExecutor implements Serializable {
                 RemoteTuple remoteTuple = new RemoteTuple(_id, route.originalRoute, tuple);
 
                 try {
-                    _reroutingTupleSendingQueue.put(remoteTuple);
+                    while(!_reroutingTupleSendingQueue.offer(remoteTuple, 1, TimeUnit.SECONDS)) {
+                        System.out.println("Waiting for available space in _reroutingTupleSendingQueue");
+                    }
+
+//                    _reroutingTupleSendingQueue.put(remoteTuple);
+//                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 return true;
             } else {
                 try {
-                    if (_random.nextInt(5000) == 0)
-                        System.out.println("A tuple is route to " + route + " by the routing table!");
-                    _localTaskIdToInputQueue.get(route.route).put(tuple);
+//                    if (_random.nextInt(5000) == 0)
+//                        System.out.println("A tuple is routed to " + route.route + " by the routing table!");
+                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
+                        System.out.println("Waiting for available space in _localTaskIdToInputQueue");
+                    }
+//                    _localTaskIdToInputQueue.get(route.route).put(tuple);
+
 //                System.out.println("A tuple is inserted into the processing queue!");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
