@@ -110,6 +110,7 @@ public class GeneralTopologyContext implements JSONAware {
     public Fields getComponentOutputFields(String componentId, String streamId) {
         Fields ret = _componentToStreamToFields.get(componentId).get(streamId);
         if(ret==null) {
+            System.err.println("_componentToStreamToFields: " + _componentToStreamToFields.toString());
             throw new IllegalArgumentException("No output fields defined for component:stream " + componentId + ":" + streamId);
         }
         return ret;

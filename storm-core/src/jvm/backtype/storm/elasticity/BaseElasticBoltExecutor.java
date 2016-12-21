@@ -20,9 +20,11 @@ import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.RateTracker;
+import backtype.storm.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
@@ -83,6 +85,17 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     private transient ArrayList<Tuple> inputDrainer = new ArrayList<>();
     private long lastDrainerTime = 0;
 
+
+    // debuy info
+
+    public class DispatchThreadDebugInfo implements Serializable {
+        String exeutionPoint ="";
+        long executorCount = 0L;
+        public String toString() {
+            return String.format("Point: %s, count: %d", executorCount, executorCount);
+        }
+    }
+    DispatchThreadDebugInfo dispatchThreadDebugInfo = new DispatchThreadDebugInfo();
 
     public BaseElasticBoltExecutor(BaseElasticBolt bolt) {
         _bolt = bolt;
@@ -184,6 +197,16 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
         _holder.registerElasticBolt(this, _taskId);
 
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(true) {
+                    Utils.sleep(10000);
+                    System.out.println(dispatchThreadDebugInfo.toString());
+                }
+            }
+        }).start();
+
     }
 
     private boolean isSaturated() {
@@ -191,7 +214,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
     }
 
     private void createInputTupleRoutingThread() {
-        Thread dispatchThread = new Thread(new Runnable() {
+        final Thread dispatchThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -209,12 +232,14 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                                     inputTupleLengthHistory.poll();
                                 }
                             }
-                            System.out.println("bk 1");
-                            if (!_elasticExecutor.tryHandleTuple(input, key)) {
+//                            System.out.println("bk 1");
+                            dispatchThreadDebugInfo.exeutionPoint="bk 1";
+                            if (!_elasticExecutor.tryHandleTuple(input, key, dispatchThreadDebugInfo)) {
                                 System.err.println("elastic task fails to process a tuple!");
                                 assert (false);
                             }
-                            System.out.println("bk 10");
+                            dispatchThreadDebugInfo.exeutionPoint = "bk 10";
+                            dispatchThreadDebugInfo.executorCount ++;
                             _inputRateTracker.notify(1);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
