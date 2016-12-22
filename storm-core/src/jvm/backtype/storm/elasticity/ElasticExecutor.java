@@ -121,7 +121,7 @@ public class ElasticExecutor implements Serializable {
             }
             if (dispatchThreadDebugInfo != null)
                 dispatchThreadDebugInfo.exeutionPoint = "bk 5";
-            if (route.route == RoutingTable.remote) {
+            if (route.route == RoutingTable.REMOTE) {
                 if (remote) {
                     String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticExecutor!\n", key);
                     str += "target route is " + route.originalRoute + "\n";

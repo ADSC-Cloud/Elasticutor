@@ -10,7 +10,7 @@ import java.util.List;
 public class VoidRouting implements RoutingTable {
     @Override
     public Route route(Object key) {
-        return new Route(origin);
+        return new Route(ORIGIN);
     }
 
     @Override

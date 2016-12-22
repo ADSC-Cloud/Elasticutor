@@ -95,7 +95,7 @@ public class PartialHashingRouting implements RoutingTable {
         if (_validRoutes.contains(route.route))
             return route;
         else
-            return new Route(RoutingTable.remote, route.route);
+            return new Route(RoutingTable.REMOTE, route.route);
     }
 
     public List<Integer> getOriginalRoutes() {

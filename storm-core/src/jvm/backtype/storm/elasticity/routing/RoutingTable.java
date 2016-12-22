@@ -21,8 +21,8 @@ public interface RoutingTable extends Serializable, ScalableRouting {
             this(route, route);
         }
     }
-    public static int origin = 0;
-    public static int remote = -2;
+    public static int ORIGIN = 0;
+    public static int REMOTE = -2;
     public Route route(Object key);
     public int getNumberOfRoutes();
     public List<Integer> getRoutes();

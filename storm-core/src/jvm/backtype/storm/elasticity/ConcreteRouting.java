@@ -16,7 +16,7 @@ public class ConcreteRouting implements RoutingTable {
     public Route route(Object key) {
         if(routingTable.containsKey(key))
             return new Route(routingTable.get(key));
-        return new Route(RoutingTable.origin);
+        return new Route(RoutingTable.ORIGIN);
     }
 
     @Override
