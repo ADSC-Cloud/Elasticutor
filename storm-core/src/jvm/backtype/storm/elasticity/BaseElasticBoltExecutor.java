@@ -179,7 +179,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //        _elasticExecutor.prepare(_outputCollector);
         _taskId = context.getThisTaskId();
         _elasticExecutor = ElasticExecutor.createHashRouting(1,_bolt,_taskId, _outputCollector);
-        _elasticExecutor.set_reroutingTupleSendingQueue(_holder._sendingQueue);
+        _elasticExecutor.set_reroutingTupleSendingQueue(_holder.communicator._sendingQueue);
 //        createTest();
 //        _elasticExecutor = ElasticExecutor.createVoidRouting(_bolt, _taskId, _outputCollector);
         _inputRateTracker = new RateTracker(3000, 5);

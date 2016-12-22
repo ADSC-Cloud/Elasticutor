@@ -108,7 +108,7 @@ public class ElasticTaskHolder {
 
         private IContext _context;
 
-        private ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config
+        public ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config
                 .ElasticTaskHolderOutputQueueCapacity);
 
         void addRemoteTaskOutputConnection(int executorId, IConnection connection) {
