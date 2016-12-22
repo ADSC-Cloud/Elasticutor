@@ -92,7 +92,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         String exeutionPoint ="";
         long executorCount = 0L;
         public String toString() {
-            return String.format("Point: %s, count: %d", executorCount, executorCount);
+            return String.format("Point: %s, count: %d", exeutionPoint, executorCount);
         }
     }
     DispatchThreadDebugInfo dispatchThreadDebugInfo = new DispatchThreadDebugInfo();
