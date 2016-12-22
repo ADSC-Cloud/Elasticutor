@@ -25,6 +25,7 @@ import backtype.storm.elasticity.state.*;
 import backtype.storm.elasticity.utils.FirstFitDoubleDecreasing;
 import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.elasticity.utils.MonitorUtils;
+import backtype.storm.elasticity.utils.ThreadCpuUtilization;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultDeserializer;
 import backtype.storm.elasticity.utils.serialize.RemoteTupleExecuteResultSerializer;
 import backtype.storm.elasticity.utils.timer.SmartTimer;
@@ -63,14 +64,6 @@ public class ElasticTaskHolder {
 
     private static ElasticTaskHolder _instance;
 
-    private IContext _context;
-
-    private IConnection _inputConnection;
-
-    private IConnection _priorityInputConnection;
-
-    private IConnection _remoteExecutionResultInputConnection;
-
     private String _workerId;
 
     private int _port;
@@ -81,28 +74,18 @@ public class ElasticTaskHolder {
 
     private Map stormConf;
 
+    private Map<Integer, BaseElasticBoltExecutor> _bolts = new HashMap<>();
 
-
-    private RemoteTupleExecuteResultDeserializer remoteTupleExecuteResultDeserializer;
-
-    Map<Integer, BaseElasticBoltExecutor> _bolts = new HashMap<>();
-
-    Map<Integer, ElasticRemoteTaskExecutor> _originalTaskIdToRemoteTaskExecutor = new HashMap<>();
-
-
-
-    Map<Integer, IConnection> _remoteExecutorIdToPrioritizedSender = new ConcurrentHashMap<>();
+    private Map<Integer, ElasticRemoteTaskExecutor> _originalTaskIdToRemoteTaskExecutor = new HashMap<>();
 
     ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config
             .ElasticTaskHolderOutputQueueCapacity);
 
-    Map<String, Semaphore> _taskidRouteToStateWaitingSemaphore = new ConcurrentHashMap<>();
-
-//    Map<String, Semaphore> _taskIdRouteToSendingWaitingSemaphore = new ConcurrentHashMap<>();
+    private Map<String, Semaphore> _taskidRouteToStateWaitingSemaphore = new ConcurrentHashMap<>();
 
     Map<Integer, Map<Integer, Semaphore>> _taskIdToRouteToSendingWaitingSemaphore = new ConcurrentHashMap<>();
 
-    Map<String, Semaphore> _taskIdRouteToCleanPendingTupleSemaphore = new ConcurrentHashMap<>();
+    private  Map<String, Semaphore> _taskIdRouteToCleanPendingTupleSemaphore = new ConcurrentHashMap<>();
 
     ResourceMonitor resourceMonitor;
 
@@ -110,25 +93,41 @@ public class ElasticTaskHolder {
 
     IntraExecutorCommunicator communicator = new IntraExecutorCommunicator();
 
-    class IntraExecutorCommunicator {
+    private class IntraExecutorCommunicator {
         private KryoTupleSerializer tupleSerializer;
         private KryoTupleDeserializer tupleDeserializer;
 
         private RemoteTupleExecuteResultSerializer remoteTupleExecuteResultSerializer;
+        private RemoteTupleExecuteResultDeserializer remoteTupleExecuteResultDeserializer;
 
         private Map<String, IConnection> _taskidRouteToConnection = new ConcurrentHashMap<>();
         private Map<Integer, IConnection> _executorIdToRemoteTaskOutputConnection = new ConcurrentHashMap<>();
         private Map<Integer, IConnection> _remoteExecutorIdToSender = new ConcurrentHashMap<>();
+        Map<Integer, IConnection> _remoteExecutorIdToPrioritizedSender = new ConcurrentHashMap<>();
 
+        private IConnection _inputConnection;
+        private IConnection _priorityInputConnection;
+        private IConnection _remoteExecutionResultInputConnection;
 
+        private IContext _context;
 
         void addRemoteTaskOutputConnection(int executorId, IConnection connection) {
             _executorIdToRemoteTaskOutputConnection.put(executorId, connection);
         }
 
-        void initialize() {
+        void initialize(String workerId) {
+            _context = new Context();
+            _context.prepare(stormConf);
+
+            _inputConnection = _context.bind(workerId, _port);
+            _priorityInputConnection = _context.bind(workerId, _port + 5);
+            _remoteExecutionResultInputConnection = _context.bind(workerId, _port + 10);
+
             createExecuteResultSendingThread();
             createExecuteResultReceivingThread();
+            createPriorityReceivingThread();
+            createRemoteExecutorResultReceivingThread();
+
         }
 
         boolean connectionReady(String taskidRoute) {
@@ -147,12 +146,35 @@ public class ElasticTaskHolder {
             return _taskidRouteToConnection.get(taskidRoute);
         }
 
-        public void establishConnectionToRemoteTaskHolder(int taksId, int route, String remoteIp, int remotePort) {
+        private void establishConnectionToRemoteTaskHolder(int taksId, int route, String remoteIp, int remotePort) {
             Client connection = (Client) _context.connect("", remoteIp, remotePort);
             while (connection.status() != Client.Status.Ready)
                 Utils.sleep(1);
             _taskidRouteToConnection.put(taksId + "." + route, connection);
             System.out.println("Established connection with remote task holder for " + taksId + "." + route);
+        }
+
+        private void establishConnectionToOriginalTaskHolder(int executorId, String ip, int port) {
+            Client iConnection = (Client) _context.connect(ip + ":" + port + "-" +
+                    executorId, ip, port);
+            while (iConnection.status() != Client.Status.Ready)
+                Utils.sleep(1);
+            communicator._remoteExecutorIdToSender.put(executorId, iConnection);
+
+            Client prioritizedConnection = (Client) _context.connect(ip + ":" + (port + 5) + "-"
+                    + executorId, ip, port + 5);
+            while (prioritizedConnection.status() != Client.Status.Ready)
+                Utils.sleep(1);
+            communicator._remoteExecutorIdToPrioritizedSender.put(executorId, prioritizedConnection);
+
+            Client remoteExecutionResultConnection = (Client) _context.connect(ip + ":"
+                    + (port + 10) + "-" + executorId, ip, port + 10);
+            while (remoteExecutionResultConnection.status() != Client.Status.Ready)
+                Utils.sleep(1);
+            communicator.addRemoteTaskOutputConnection(executorId,
+                    remoteExecutionResultConnection);
+
+            System.out.println("Connected with original Task Holders");
         }
 
         private void createExecuteResultSendingThread() {
@@ -197,10 +219,8 @@ public class ElasticTaskHolder {
                                     }
                                 } else if (message instanceof RemoteTuple) {
 
-                                    //LOG.debug("The element is RemoteTuple");
                                     RemoteTuple remoteTuple = (RemoteTuple) message;
                                     final String key = remoteTuple.taskIdAndRoutePair();
-                                    //LOG.debug("Key :"+key);
                                     long startTime = -1;
                                     while (!communicator.connectionReady(key)) {
                                         Utils.sleep(1);
@@ -300,8 +320,8 @@ public class ElasticTaskHolder {
                                 } else {
                                     System.err.print("Unknown element from the sending queue");
                                 }
-                                //                        System.out.println("sent...");
                             }
+
                             for (String connectionName : iConnectionNameToTaskMessageArray.keySet()) {
                                 if (!iConnectionNameToTaskMessageArray.get(connectionName).isEmpty()) {
                                     connectionNameToIConnection.get(connectionName).send
@@ -315,7 +335,8 @@ public class ElasticTaskHolder {
                         } catch (ClassCastException e) {
                             e.printStackTrace();
                             System.out.println("Class case exception happens!");
-                            System.out.println(String.format("Message: %s", object.toString()));
+                            if(object != null)
+                                System.out.println(String.format("Message: %s", object.toString()));
                             sendMessageToMaster("Class case exception happens!");
                             System.exit(1024);
                         } catch (Exception eee) {
@@ -365,19 +386,6 @@ public class ElasticTaskHolder {
                                                 result.spaceEfficientDeserialize(remoteTupleExecuteResultDeserializer);
                                                 ((TupleImpl) result._inputTuple).setContext(_workerTopologyContext);
                                                 _bolts.get(targetTaskId).insertToResultQueue(result);
-                                            } else if (object instanceof RemoteTuple) {
-//                                                RemoteTuple remoteTuple = (RemoteTuple) object;
-//                                                try {
-//                                                    ((TupleImpl) remoteTuple._tuple).setContext(_workerTopologyContext);
-//                                                    ElasticRemoteTaskExecutor elasticRemoteTaskExecutor =
-//                                                            _originalTaskIdToRemoteTaskExecutor.get(message.task());
-//                                                    ArrayBlockingQueue<Object> queue = elasticRemoteTaskExecutor
-//                                                            .get_inputQueue();
-//                                                    queue.put(remoteTuple._tuple);
-//                                                } catch (InterruptedException e) {
-//                                                    e.printStackTrace();
-//                                                }
-                                                Slave.getInstance().sendMessageToMaster("Error!!! Error!!! Error!!!");
                                             } else if (object instanceof RemoteState) {
                                                 System.out.println("Received RemoteState!");
                                                 RemoteState remoteState = (RemoteState) object;
@@ -397,11 +405,8 @@ public class ElasticTaskHolder {
                                                 handleBucketToRouteReassignment(reassignment);
                                             } else if (object instanceof StateFlushToken) {
                                                 System.out.println("Received StateFlushToken!");
-//                                              sendMessageToMaster("Received StateFlushToken!");
                                                 StateFlushToken token = (StateFlushToken) object;
-
                                                 handleStateFlushToken(token);
-
                                             } else if (object instanceof MetricsForRoutesMessage) {
                                                 System.out.println("MetricsForRoutesMessage");
                                                 MetricsForRoutesMessage latencyForRoutesMessage =
@@ -440,6 +445,87 @@ public class ElasticTaskHolder {
             createThreadUtilizationMonitoringThread(receivingThread.getId(), "Receiving Thread", 0.7);
         }
 
+        private void createPriorityReceivingThread() {
+            Thread receivingThread =
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            while (true) {
+                                try {
+                                    Iterator<TaskMessage> messageIterator = _priorityInputConnection.recv(0, 0);
+                                    while (messageIterator.hasNext()) {
+                                        TaskMessage message = messageIterator.next();
+                                        Object object = SerializationUtils.deserialize(message.message());
+                                        if (object instanceof RemoteState) {
+                                            System.out.println("[PrioritizedInput:] received RemoteState!");
+                                            RemoteState remoteState = (RemoteState) object;
+                                            handleRemoteState(remoteState);
+                                            System.out.println("[PrioritizedInput:] handled RemoteState!");
+                                        } else if (object instanceof PendingTupleCleanedMessage) {
+                                            System.out.println("[PrioritizedInput:] received PendingTupleCleanedMessage!");
+                                            PendingTupleCleanedMessage cleanedMessage = (PendingTupleCleanedMessage) object;
+                                            handlePendingTupleCleanedMessage(cleanedMessage);
+                                            System.out.println("[PrioritizedInput:] handled PendingTupleCleanedMessage!");
+                                        } else if (object instanceof MetricsForRoutesMessage) {
+                                            MetricsForRoutesMessage latencyForRoutesMessage = (MetricsForRoutesMessage)
+                                                    object;
+                                            int taskId = latencyForRoutesMessage.taskId;
+                                            _bolts.get(taskId).updateLatencyMetrics(latencyForRoutesMessage
+                                                    .latencyForRoutes);
+                                            _bolts.get(taskId).updateThroughputMetrics(latencyForRoutesMessage
+                                                    .throughputForRoutes);
+                                        } else {
+                                            System.err.println(" -_- Priority input connection receives unexpected " +
+                                                    "object: " + object);
+                                            _slaveActor.sendMessageToMaster("-_- Priority input connection receives " +
+                                                    "unexpected object: " + object);
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    });
+            receivingThread.start();
+            MonitorUtils.instance().registerThreadMonitor(receivingThread.getId(), "Priority Receiving Thread", 0.7, 10);
+        }
+
+        private void createRemoteExecutorResultReceivingThread() {
+            Thread receivingThread =
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            while (true) {
+                                try {
+                                    Iterator<TaskMessage> messageIterator = _remoteExecutionResultInputConnection.recv(0,
+                                            0);
+                                    while (messageIterator.hasNext()) {
+                                        TaskMessage message = messageIterator.next();
+                                        Object object = remoteTupleExecuteResultDeserializer.deserializeToTuple(message
+                                                .message());
+                                        if (object instanceof RemoteTupleExecuteResult) {
+                                            RemoteTupleExecuteResult result = (RemoteTupleExecuteResult) object;
+                                            if (result._inputTuple != null)
+                                                ((TupleImpl) result._inputTuple).setContext(_workerTopologyContext);
+                                            _bolts.get(result._originalTaskID).insertToResultQueue(result);
+                                        } else {
+                                            System.err.println("Remote Execution Result input connection receives " +
+                                                    "unexpected object: " + object);
+                                            _slaveActor.sendMessageToMaster("Remote Execution Result input connection " +
+                                                    "receives unexpected object: " + object);
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    });
+            receivingThread.start();
+            MonitorUtils.instance().registerThreadMonitor(receivingThread.getId(), "RemoteExecutorResult Receiving " +
+                    "Thread", 0.8, 5);
+        }
     }
 
     static public ElasticTaskHolder instance() {
@@ -457,27 +543,17 @@ public class ElasticTaskHolder {
         System.out.println("creating ElasticTaskHolder");
         Config.overrideFromStormConf(stormConf);
         this.stormConf = stormConf;
-        _context = new Context();
         _port = port + 10000;
-        _context.prepare(stormConf);
-        _inputConnection = _context.bind(workerId, _port);
-        _priorityInputConnection = _context.bind(workerId, _port + 5);
-        _remoteExecutionResultInputConnection = _context.bind(workerId, _port + 10);
+
         _workerId = workerId;
         _slaveActor = Slave.createActor(_workerId, Integer.toString(port));
         if (_slaveActor == null)
             System.out.println("NOTE: _slaveActor is null!!***************\n");
+        communicator.initialize(workerId);
 
-        communicator.initialize();
-
-//        communicator.createExecuteResultSendingThread();
-//        createExecuteResultSendingThread();
-        createPriorityReceivingThread();
-        createRemoteExecutorResultReceivingThread();
         LOG.info("ElasticTaskHolder is launched.");
         LOG.info("storm id:" + workerId + " port:" + port);
         Utils.sleep(2000);
-        _slaveActor.sendMessageToMaster("My pid is: " + ManagementFactory.getRuntimeMXBean().getName());
         resourceMonitor = new ResourceMonitor();
         createMetricsReportThread();
         createParallelismPredicationThread();
@@ -581,31 +657,8 @@ public class ElasticTaskHolder {
             if (!_originalTaskIdToRemoteTaskExecutor.containsKey(message._elasticTask.get_id())) {
                 //This is the first RemoteTasks assigned to this host.
 //            if(!_originalTaskIdToConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client iConnection = (Client) _context.connect(message._ip + ":" + message._port + "-" +
-                        message._elasticTask.get_id(), message._ip, message._port);
-                while (iConnection.status() != Client.Status.Ready)
-                    Utils.sleep(1);
-                communicator._remoteExecutorIdToSender.put(message._elasticTask.get_id(), iConnection);
-//            }
 
-//            if(!_originalTaskIdToPriorityConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client prioritizedConnection = (Client) _context.connect(message._ip + ":" + (message._port + 5) + "-"
-                        + message._elasticTask.get_id(), message._ip, message._port + 5);
-                while (prioritizedConnection.status() != Client.Status.Ready)
-                    Utils.sleep(1);
-                _remoteExecutorIdToPrioritizedSender.put(message._elasticTask.get_id(), prioritizedConnection);
-//            }
-
-//            if(!_originalTaskIdToExecutorResultConnection.containsKey(message._elasticTask.get_taskID())) {
-                Client remoteExecutionResultConnection = (Client) _context.connect(message._ip + ":"
-                        + (message._port + 10) + "-" + message._elasticTask.get_id(), message._ip, message._port + 10);
-                while (remoteExecutionResultConnection.status() != Client.Status.Ready)
-                    Utils.sleep(1);
-                communicator.addRemoteTaskOutputConnection(message._elasticTask.get_id(),
-                        remoteExecutionResultConnection);
-
-                System.out.println("Connected with original Task Holders");
-//            sendMessageToMaster("Connected with original Task holders!");
+                communicator.establishConnectionToOriginalTaskHolder(message._elasticTask.get_id(), message._ip, message._port);
 
                 System.out.println("create new remote task executor!");
 
@@ -694,131 +747,10 @@ public class ElasticTaskHolder {
         }).start();
     }
 
-    public void createQueueUtilizationMonitoringThread(final Queue queue, final String queueName, final long
-            capacity, final Double highWatermark, final Double lowWatermark) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ThreadMXBean tmxb = ManagementFactory.getThreadMXBean();
-                try {
-                    while (true) {
-                        Thread.sleep(1000);
-                        int size = queue.size();
-                        double utilization = (double) size / capacity;
-                        if (highWatermark != null && utilization > highWatermark) {
-                            sendMessageToMaster("The utilization of " + queueName + " reaches " + utilization);
-                        }
-                        if (lowWatermark != null && utilization < lowWatermark) {
-                            sendMessageToMaster("The utilization of " + queueName + "reaches " + utilization);
-                        }
-
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
 
 
-    private void createPriorityReceivingThread() {
-        Thread receivingThread =
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (true) {
-                            try {
-                                Iterator<TaskMessage> messageIterator = _priorityInputConnection.recv(0, 0);
-                                while (messageIterator.hasNext()) {
-                                    TaskMessage message = messageIterator.next();
-                                    Object object = SerializationUtils.deserialize(message.message());
-                                    if (object instanceof RemoteState) {
-                                        System.out.println("[PrioritizedInput:] received RemoteState!");
-                                        RemoteState remoteState = (RemoteState) object;
-                                        handleRemoteState(remoteState);
-                                        System.out.println("[PrioritizedInput:] handled RemoteState!");
-                                    } else if (object instanceof PendingTupleCleanedMessage) {
-                                        System.out.println("[PrioritizedInput:] received PendingTupleCleanedMessage!");
-                                        PendingTupleCleanedMessage cleanedMessage = (PendingTupleCleanedMessage) object;
-                                        handlePendingTupleCleanedMessage(cleanedMessage);
-                                        System.out.println("[PrioritizedInput:] handled PendingTupleCleanedMessage!");
-                                    } else if (object instanceof MetricsForRoutesMessage) {
-//                                        System.out.println("[PrioritizedInput:] received MetricsForRoutesMessage!");
-//                                System.out.println("MetricsForRoutesMessage");
-                                        MetricsForRoutesMessage latencyForRoutesMessage = (MetricsForRoutesMessage)
-                                                object;
-                                        int taskId = latencyForRoutesMessage.taskId;
-//                            sendMessageToMaster(String.format("Latency data at %s is received!",
-// latencyForRoutesMessage.timeStamp));
-                                        _bolts.get(taskId).updateLatencyMetrics(latencyForRoutesMessage
-                                                .latencyForRoutes);
-                                        _bolts.get(taskId).updateThroughputMetrics(latencyForRoutesMessage
-                                                .throughputForRoutes);
 
-//                                        System.out.println("[PrioritizedInput:] handled MetricsForRoutesMessage!");
-                                    } else {
-                                        System.err.println(" -_- Priority input connection receives unexpected " +
-                                                "object: " + object);
-                                        _slaveActor.sendMessageToMaster("-_- Priority input connection receives " +
-                                                "unexpected object: " + object);
-                                    }
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                });
-        receivingThread.start();
-        createThreadUtilizationMonitoringThread(receivingThread.getId(), "Priority Receiving Thread", 0.7);
-    }
 
-    private void createRemoteExecutorResultReceivingThread() {
-        Thread receivingThread =
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (true) {
-                            try {
-                                Iterator<TaskMessage> messageIterator = _remoteExecutionResultInputConnection.recv(0,
-                                        0);
-                                while (messageIterator.hasNext()) {
-                                    TaskMessage message = messageIterator.next();
-//                            Object object = SerializationUtils.deserialize(message.message());
-                                    Object object = remoteTupleExecuteResultDeserializer.deserializeToTuple(message
-                                            .message());
-//                            Slave.getInstance().sendMessageToMaster("createRemoteExecutorResultReceivingThread got
-// something: " + object);
-                                    if (object instanceof RemoteTupleExecuteResult) {
-                                        RemoteTupleExecuteResult result = (RemoteTupleExecuteResult) object;
-//                                result.spaceEfficientDeserialize(remoteTupleExecuteResultDeserializer);
-                                        if (result._inputTuple != null)
-                                            ((TupleImpl) result._inputTuple).setContext(_workerTopologyContext);
-//                                System.out.println("A query result is received. originalTaskId =  "+result
-// ._originalTaskID + " TaskID =  " + result._taskId);
-                                        _bolts.get(result._originalTaskID).insertToResultQueue(result);
-//                                System.out.println("a query result tuple is added into the input queue");
-                                    } else {
-                                        System.err.println("Remote Execution Result input connection receives " +
-                                                "unexpected object: " + object);
-                                        _slaveActor.sendMessageToMaster("Remote Execution Result input connection " +
-                                                "receives unexpected object: " + object);
-                                    }
-                                }
-//                        Utils.sleep(1);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                });
-        receivingThread.start();
-//        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", -1);
-//        createThreadUtilizationMonitoringThread(receivingThread.getId(), "RemoteExecutorResult Receiving Thread", 0
-// .7);
-        MonitorUtils.instance().registerThreadMonitor(receivingThread.getId(), "RemoteExecutorResult Receiving " +
-                "Thread", 0.8, 5);
-    }
 
     private void handleRemoteState(RemoteState remoteState) {
         if (_bolts.containsKey(remoteState._taskId)) {
@@ -912,10 +844,10 @@ public class ElasticTaskHolder {
 //        remoteState._state.put("payload", new byte[stateSize]);
 
         remoteState.markAsFinalized();
-        if (_remoteExecutorIdToPrioritizedSender.containsKey(token._taskId)) {
+        if (communicator._remoteExecutorIdToPrioritizedSender.containsKey(token._taskId)) {
             final byte[] bytes = SerializationUtils.serialize(remoteState);
             WorkerMetrics.getInstance().recordStateMigration(bytes.length);
-            _remoteExecutorIdToPrioritizedSender.get(token._taskId).send(token._taskId, bytes);
+            communicator._remoteExecutorIdToPrioritizedSender.get(token._taskId).send(token._taskId, bytes);
 //            sendMessageToMaster("Remote state is send back to the original elastic holder!");
             System.out.print("Remote state is send back to the original elastic holder!");
         } else {
@@ -938,7 +870,7 @@ public class ElasticTaskHolder {
                 .routeId);
         System.out.println(String.format("Pending tuple for %s.%s is cleaned!", token.executorId, token.routeId));
         PendingTupleCleanedMessage message = new PendingTupleCleanedMessage(token.executorId, token.routeId);
-        _remoteExecutorIdToPrioritizedSender.get(token.executorId).send(token.executorId, SerializationUtils.serialize
+        communicator._remoteExecutorIdToPrioritizedSender.get(token.executorId).send(token.executorId, SerializationUtils.serialize
                 (message));
 //        sendMessageToMaster("PendingTupleCleanedMessage is sent back!");
     }
@@ -1181,7 +1113,7 @@ public class ElasticTaskHolder {
         communicator.tupleDeserializer = new KryoTupleDeserializer(stormConf, context);
         communicator.tupleSerializer = new KryoTupleSerializer(stormConf, context);
 
-        remoteTupleExecuteResultDeserializer = new RemoteTupleExecuteResultDeserializer(stormConf, context,
+        communicator.remoteTupleExecuteResultDeserializer = new RemoteTupleExecuteResultDeserializer(stormConf, context,
                 communicator.tupleDeserializer);
         communicator.remoteTupleExecuteResultSerializer = new RemoteTupleExecuteResultSerializer(stormConf, context,
                 communicator.tupleSerializer);
@@ -1932,7 +1864,7 @@ public class ElasticTaskHolder {
                                     latencyForRoutes, throughputForRoutes);
 
                             message.setTimeStamp(Calendar.getInstance().getTime().toString());
-                            _remoteExecutorIdToPrioritizedSender.get(remoteTaskId).send(remoteTaskId,
+                            communicator._remoteExecutorIdToPrioritizedSender.get(remoteTaskId).send(remoteTaskId,
                                     SerializationUtils.serialize(message));
 //                            _sendingQueue.put(message);
                         }
