@@ -49,6 +49,7 @@ public class StateConsistencyValidator implements Serializable {
         boolean ret = true;
         if (count % checkFrequency ==0) {
             ret = state.value == 0;
+            state.value = 0;
         }
         state.count += 1;
         return ret;
@@ -86,17 +87,22 @@ public class StateConsistencyValidator implements Serializable {
 
 
     static public void main(String[] args) {
-        StateConsistencyValidator stateConsistencyValidator = new StateConsistencyValidator(10,3);
+        StateConsistencyValidator stateConsistencyValidator = new StateConsistencyValidator(10000,10);
         StateConsistencyValidator.Generator generator = stateConsistencyValidator.createGenerator();
         Map<Integer, ValidateState> keyToState = new HashMap<>();
-        for(int i = 0; i < 10000; i++) {
-            ValidateTuple tuple = generator.generate();
-            if (!keyToState.containsKey(tuple.key)) {
-                keyToState.put(tuple.key, new ValidateState());
+        int round = 0;
+        while (true) {
+            for (int i = 0; i < 10000; i++) {
+                ValidateTuple tuple = generator.generate();
+                if (!keyToState.containsKey(tuple.key)) {
+                    keyToState.put(tuple.key, new ValidateState());
+                }
+                ValidateState state = keyToState.get(tuple.key);
+                if (!stateConsistencyValidator.validate(tuple.value, state))
+                    System.out.println("Error!");
+                keyToState.put(tuple.key, state);
             }
-            ValidateState state = keyToState.get(tuple.key);
-            if(!stateConsistencyValidator.validate(tuple.value, state))
-                System.out.println("Error!");
+            System.out.println("round " + round++);
         }
     }
 

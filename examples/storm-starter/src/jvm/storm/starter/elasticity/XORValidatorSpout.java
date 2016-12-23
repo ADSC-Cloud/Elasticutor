@@ -1,5 +1,6 @@
 package storm.starter.elasticity;
 
+import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.spout.ISpout;
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.TopologyContext;
@@ -16,13 +17,13 @@ import java.util.Map;
 /**
  * Created by robert on 22/12/16.
  */
-public class Spout extends BaseRichSpout {
+public class XORValidatorSpout extends BaseRichSpout {
 
     private StateConsistencyValidator validator;
     private SpoutOutputCollector collector;
     private StateConsistencyValidator.Generator generator;
 
-    public Spout(StateConsistencyValidator validator) {
+    public XORValidatorSpout(StateConsistencyValidator validator) {
         this.validator = validator;
     }
 
@@ -35,8 +36,10 @@ public class Spout extends BaseRichSpout {
 
     @Override
     public void nextTuple() {
+//        Utils.sleep(1000);
         StateConsistencyValidator.ValidateTuple validateTuple = generator.generate();
-        collector.emit(new Values(validateTuple.key, validateTuple.value));
+        collector.emit(new Values(validateTuple.key, validateTuple.value), new Object());
+//        Slave.getInstance().sendMessageToMaster("Emitted: " + validateTuple.toString());
     }
 
     @Override

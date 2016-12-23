@@ -26,9 +26,9 @@ public class ElasticityCorrectionValidationTopology {
 
         StateConsistencyValidator stateConsistencyValidator = new StateConsistencyValidator(numberOfKeys, checkFrequency);
 
-        builder.setSpout("spout", new Spout(stateConsistencyValidator));
+        builder.setSpout("spout", new XORValidatorSpout(stateConsistencyValidator));
 
-        builder.setBolt("bolt", new ElasticBolt(stateConsistencyValidator, computationCostInNanoSeconds))
+        builder.setBolt("bolt", new XORValidatorElasticBolt(stateConsistencyValidator, computationCostInNanoSeconds))
                 .fieldsGrouping("spout", new Fields("key"));
 
         Config conf = new Config();

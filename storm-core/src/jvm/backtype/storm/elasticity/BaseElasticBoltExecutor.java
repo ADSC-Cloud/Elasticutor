@@ -109,9 +109,10 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             while(true) {
                 try {
                     TupleExecuteResult result = _resultQueue.take();
-                }  catch (InterruptedException ee ) {
-                    ee.printStackTrace();
-                    break;
+                    handle(result);
+//                }  catch (InterruptedException ee ) {
+//                    ee.printStackTrace();
+//                    break;
 
 
 //                    _resultQueue.drainTo(drainer, 512);
@@ -192,7 +193,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         inputDrainer = new ArrayList<>();
         pendingTupleQueue = new ArrayBlockingQueue<>(pendingTupleQueueCapacity);
         MonitorUtils.instance().registerQueueMonitor(pendingTupleQueue, "input pending queue",
-                pendingTupleQueueCapacity, null, 0.9, 5);
+                pendingTupleQueueCapacity, 0.1, 0.9, 10);
         createInputTupleRoutingThread();
 
         _holder.registerElasticBolt(this, _taskId);
@@ -221,6 +222,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                     ArrayList<Tuple> drainer = new ArrayList<>();
                     while (true) {
                         try {
+                            dispatchThreadDebugInfo.exeutionPoint="bk 0";
                             Tuple input = pendingTupleQueue.take();
                             final Object key = _bolt.getKey(input);
 
