@@ -9,7 +9,7 @@ import storm.starter.elasticity.util.StateConsistencyValidator;
 /**
  * Created by robert on 22/12/16.
  */
-public class ElasticityCorrectionValidationTopology {
+public class ElasticityCorrectionXORValidationTopology {
     public static void main(String[] args) throws Exception {
 
         if(args.length != 4) {
