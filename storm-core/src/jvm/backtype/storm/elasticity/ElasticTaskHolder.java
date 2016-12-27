@@ -1248,6 +1248,7 @@ public class ElasticTaskHolder {
         SmartTimer.getInstance().stop("ShardReassignment", "resume");
 //        sendMessageToMaster("Reassignment completes!");
 //        _slaveActor.sendMessageToMaster(SmartTimer.getInstance().getTimerString("ShardReassignment"));
+        System.out.print(SmartTimer.getInstance().getTimerString("ShardReassignment"));
         System.out.println("===End Shard Reassignment " + bucketId + " " + taskid + "." + orignalRoute + "---->" +
                 taskid + "." + targetRoute);
 
@@ -1630,9 +1631,9 @@ public class ElasticTaskHolder {
             for (ShardReassignment reassignment : plan.getReassignmentList()) {
                 string += reassignment.shardId + " ";
             }
-            sendMessageToMaster(string);
+//            sendMessageToMaster(string);
 
-            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
+//            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
             System.out.println("scaling in subtask command is done, current Dop = " + twoTireRouting.getRoutes().size
                     ());
 
@@ -1755,13 +1756,14 @@ public class ElasticTaskHolder {
             }
             SmartTimer.getInstance().stop("ScalingOut", "Conduct");
             sendMessageToMaster(SmartTimer.getInstance().getTimerString("ScalingOut"));
-            sendMessageToMaster("Scaling out succeeds with " + plan.getReassignmentList().size() + " movements!");
+            sendMessageToMaster("Scaling out to " + twoTireRouting.getRoutes().size() + " succeeds with " +
+                    plan.getReassignmentList().size() + " movements!");
             String shardMovements = "";
             for (ShardReassignment reassignment : plan.getReassignmentList()) {
                 shardMovements += reassignment.shardId + " ";
             }
-            sendMessageToMaster(shardMovements);
-            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
+//            sendMessageToMaster(shardMovements);
+//            sendMessageToMaster("Current DOP: " + twoTireRouting.getRoutes().size());
             System.out.println("Scaling out command is handed. The current Dop is " + twoTireRouting.getRoutes().size
                     ());
             return Status.OK();

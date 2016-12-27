@@ -4,6 +4,7 @@ import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.elasticity.config.Config;
 import backtype.storm.elasticity.exceptions.InvalidRouteException;
 import backtype.storm.elasticity.exceptions.RoutingTypeNotSupportedException;
+import backtype.storm.elasticity.message.LabelingTuple;
 import backtype.storm.elasticity.metrics.ExecutionLatencyForRoutes;
 import backtype.storm.elasticity.message.taksmessage.ITaskMessage;
 import backtype.storm.elasticity.message.taksmessage.RemoteTuple;
@@ -19,10 +20,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import backtype.storm.elasticity.state.*;
-import backtype.storm.utils.Utils;
 
 /**
  * An ElasticExecutor is a self-contained, light-weight, distributed subsystem that is able to run a dynamic number of
@@ -48,10 +49,40 @@ public class ElasticExecutor implements Serializable {
 
     private transient ElasticTaskHolder _taskHolder;
 
+    private transient ProtocolAgent _protocolAgent;
+
     private boolean remote = false;
 
     private Random _random;
 
+
+    class ProtocolAgent {
+
+        private transient HashMap<Integer, Semaphore> _routeIdToCleaningTupleSemaphore;
+
+        private ProtocolAgent() {
+            this._routeIdToCleaningTupleSemaphore = new HashMap<>();
+        }
+
+        void initializeCleaningTupleProtocol(int route) {
+            final Semaphore semaphore = new Semaphore(0);
+            _routeIdToCleaningTupleSemaphore.put(route, semaphore);
+        }
+
+        void markPendingTuplesCleaned(int route) {
+            _routeIdToCleaningTupleSemaphore.get(route).release();
+        }
+
+        boolean waitUntilTuplesCleaned(int route, int waitTime, TimeUnit timeUnit) throws InterruptedException {
+            boolean finished = _routeIdToCleaningTupleSemaphore.get(route).tryAcquire(waitTime, timeUnit);
+            if(finished) {
+                _routeIdToCleaningTupleSemaphore.remove(route);
+            }
+            return finished;
+        }
+
+
+    }
 
     public ElasticExecutor(BaseElasticBolt bolt, Integer taskID, RoutingTable routingTable) {
         _bolt = bolt;
@@ -84,6 +115,7 @@ public class ElasticExecutor implements Serializable {
         _elasticOutputCollector = elasticOutputCollector;
         _taskHolder = ElasticTaskHolder.instance();
         _random = new Random();
+        _protocolAgent = new ProtocolAgent();
     }
 
     public void prepare(ElasticOutputCollector elasticOutputCollector, KeyValueState state) {
@@ -144,7 +176,7 @@ public class ElasticExecutor implements Serializable {
                     if (dispatchThreadDebugInfo != null)
                         dispatchThreadDebugInfo.exeutionPoint = "bk 7";
 //                    _reroutingTupleSendingQueue.put(remoteTuple);
-                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
+//                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -155,10 +187,10 @@ public class ElasticExecutor implements Serializable {
                         System.out.println("A tuple is routed to " + route.route + " by the routing table!");
                     if (dispatchThreadDebugInfo != null)
                         dispatchThreadDebugInfo.exeutionPoint = "bk 8";
-                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.MICROSECONDS)) {
+                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
                         System.out.println("Waiting for available space in _localTaskIdToInputQueue");
                     }
-                    System.out.println(String.format("Tuple %s is routed to %s", tuple, route.route));
+//                    System.out.println(String.format("Tuple %s is routed to %s", tuple, route.route));
                     if (dispatchThreadDebugInfo != null)
                         dispatchThreadDebugInfo.exeutionPoint = "bk 9";
 //                    _localTaskIdToInputQueue.get(route.route).put(tuple);
@@ -190,7 +222,7 @@ public class ElasticExecutor implements Serializable {
 
     public void launchElasticTasksForGivenRoute(int i) {
         ArrayBlockingQueue<Tuple> inputQueue = _localTaskIdToInputQueue.get(i);
-        QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i);
+        QueryRunnable query = new QueryRunnable(_bolt, inputQueue, _elasticOutputCollector, i, _protocolAgent);
         _taskIdToQueryRunnable.put(i, query);
         Thread newThread = new Thread(query);
         newThread.start();
@@ -377,29 +409,44 @@ public class ElasticExecutor implements Serializable {
     }
 
     public void makesSureNoPendingTuples(int routeId) {
-        if (!_localTaskIdToInputQueue.containsKey(routeId)) {
-            System.err.println(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!", routeId));
-            Slave.getInstance().logOnMaster(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!",
-                    routeId));
-            return;
-        }
-//        Slave.getInstance().sendMessageToMaster("Cleaning...." + this._taskID + "." + routeId);
-        System.out.print(String.format("Begin to clean local pending tuples for route %d", routeId));
         synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
-            Long startTime = null;
-            while (!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
-                Utils.sleep(1);
-                if (startTime == null) {
-                    startTime = System.currentTimeMillis();
-                }
-
-                if (System.currentTimeMillis() - startTime > 1000) {
+            _protocolAgent.initializeCleaningTupleProtocol(routeId);
+            try {
+                _localTaskIdToInputQueue.get(routeId).put(new LabelingTuple());
+                while (!_protocolAgent.waitUntilTuplesCleaned(routeId, 1, TimeUnit.SECONDS)) {
                     Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() +
                             "  tuples remaining in " + this._id + "." + routeId);
-                    startTime = System.currentTimeMillis();
                 }
+                System.out.println(String.format("Route %d is cleaned!", routeId));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
-        System.out.print(String.format("Cleaned local pending tuples for route %d", routeId));
+
+
+//        if (!_localTaskIdToInputQueue.containsKey(routeId)) {
+//            System.err.println(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!", routeId));
+//            Slave.getInstance().logOnMaster(String.format("RouteId %d cannot be found in makesSureNoPendingTuples!",
+//                    routeId));
+//            return;
+//        }
+////        Slave.getInstance().sendMessageToMaster("Cleaning...." + this._taskID + "." + routeId);
+//        System.out.print(String.format("Begin to clean local pending tuples for route %d", routeId));
+//        synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
+//            Long startTime = null;
+//            while (!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
+//                Utils.sleep(1);
+//                if (startTime == null) {
+//                    startTime = System.currentTimeMillis();
+//                }
+//
+//                if (System.currentTimeMillis() - startTime > 1000) {
+//                    Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() +
+//                            "  tuples remaining in " + this._id + "." + routeId);
+//                    startTime = System.currentTimeMillis();
+//                }
+//            }
+//        }
+//        System.out.print(String.format("Cleaned local pending tuples for route %d", routeId));
     }
 }

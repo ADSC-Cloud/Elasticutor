@@ -12,14 +12,15 @@ import storm.starter.elasticity.util.StateConsistencyValidator;
 public class ElasticityCorrectionIncrementalValidationTopology {
     public static void main(String[] args) throws Exception {
 
-        if(args.length != 3) {
-            System.err.println("topology-name number-of-keys computation-cost-in-nanoseconds");
+        if(args.length != 4) {
+            System.err.println("topology-name number-of-keys computation-cost-in-nanoseconds number-of-workers");
             return;
         }
 
         final String topologyName = args[0];
         final int numberOfKeys = Integer.parseInt(args[1]);
         final int computationCostInNanoSeconds = Integer.parseInt(args[2]);
+        final int numberOfWorkers = Integer.parseInt(args[3]);
 
         TopologyBuilder builder = new TopologyBuilder();
 
@@ -30,7 +31,7 @@ public class ElasticityCorrectionIncrementalValidationTopology {
 
         Config conf = new Config();
 
-        conf.setNumWorkers(1);
+        conf.setNumWorkers(numberOfWorkers);
 
         StormSubmitter.submitTopologyWithProgressBar(topologyName, conf, builder.createTopology());
     }

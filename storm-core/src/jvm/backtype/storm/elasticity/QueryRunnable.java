@@ -1,17 +1,14 @@
 package backtype.storm.elasticity;
 
 import backtype.storm.elasticity.config.Config;
+import backtype.storm.elasticity.message.LabelingTuple;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.RateTracker;
 import backtype.storm.utils.Utils;
-import org.joda.time.Seconds;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Robert on 11/4/15.
@@ -28,7 +25,7 @@ public class QueryRunnable implements Runnable {
 
     private boolean interrupted = false;
 
-    private int id;
+    private int routeId;
 
     private ConcurrentLinkedQueue<Long> latencyHistory = new ConcurrentLinkedQueue<>();
 
@@ -38,11 +35,14 @@ public class QueryRunnable implements Runnable {
 
     private Thread forceSampleThread;
 
-    public QueryRunnable(BaseElasticBolt bolt, ArrayBlockingQueue<Tuple> pendingTuples, ElasticOutputCollector outputCollector, int id) {
+    private ElasticExecutor.ProtocolAgent protocolAgent;
+
+    public QueryRunnable(BaseElasticBolt bolt, ArrayBlockingQueue<Tuple> pendingTuples,
+                         ElasticOutputCollector outputCollector, int routeId, ElasticExecutor.ProtocolAgent protocolAgent) {
         _bolt = bolt;
         _pendingTuples = pendingTuples;
         _outputCollector = outputCollector;
-        this.id = id;
+        this.routeId = routeId;
         forceSampleThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -58,6 +58,7 @@ public class QueryRunnable implements Runnable {
         });
         forceSampleThread.start();
         rateTracker = new RateTracker(5000, 5);
+        this.protocolAgent = protocolAgent;
     }
 
     /**
@@ -77,7 +78,7 @@ public class QueryRunnable implements Runnable {
                 System.out.println(_pendingTuples.size()+" elements remaining in the pending list!");
                 Thread.sleep(1);
             }
-            System.out.println("**********Query Runnable (" + id + ") is terminated!");
+            System.out.println("**********Query Runnable (" + routeId + ") is terminated!");
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -115,20 +116,23 @@ public class QueryRunnable implements Runnable {
                     Utils.sleep(1);
                 } else {
                     for (Tuple input : drainer) {
-//                    if (input != null) {
-                        if (sample % sampeEveryNTuples == 0 || forceSample) {
-                            final long currentTime = System.nanoTime();
-                            _bolt.execute(input, _outputCollector);
-                            final long executionLatency = System.nanoTime() - currentTime;
-                            latencyHistory.offer(executionLatency);
-                            if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
-                                latencyHistory.poll();
-                            }
-                            forceSample = false;
+                        if (input instanceof LabelingTuple) {
+                            protocolAgent.markPendingTuplesCleaned(routeId);
                         } else {
-                            _bolt.execute(input, _outputCollector);
+                            if (sample % sampeEveryNTuples == 0 || forceSample) {
+                                final long currentTime = System.nanoTime();
+                                _bolt.execute(input, _outputCollector);
+                                final long executionLatency = System.nanoTime() - currentTime;
+                                latencyHistory.offer(executionLatency);
+                                if (latencyHistory.size() > Config.numberOfLatencyHistoryRecords) {
+                                    latencyHistory.poll();
+                                }
+                                forceSample = false;
+                            } else {
+                                _bolt.execute(input, _outputCollector);
+                            }
+                            rateTracker.notify(1);
                         }
-                        rateTracker.notify(1);
                     }
                     drainer.clear();
                 }
