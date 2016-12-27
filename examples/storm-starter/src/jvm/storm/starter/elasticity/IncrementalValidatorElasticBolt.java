@@ -18,6 +18,7 @@ import java.util.Map;
 public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
 
     private int computationCostInNanaSeconds;
+    private long progress = 0;
 
     public IncrementalValidatorElasticBolt(int computationCostInNanaSeconds) {
         this.computationCostInNanaSeconds = computationCostInNanaSeconds;
@@ -40,7 +41,8 @@ public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
         } else {
             Long count = input.getLong(1);
             if(inStateCount + 1 != count) {
-                Slave.getInstance().logOnMaster(String.format("Key: %d, expected: %d, actual: %d", key, inStateCount + 1, count));
+                Slave.getInstance().logOnMaster(String.format("Key: %d, expected: %d, actual: %d. Local Progress: %d. ThreadId: %d", key,
+                        inStateCount + 1, count, progress++, Thread.currentThread().getId()));
             }
             inStateCount = count;
             setValueByKey(key, inStateCount);

@@ -155,9 +155,10 @@ public class ElasticExecutor implements Serializable {
                         System.out.println("A tuple is routed to " + route.route + " by the routing table!");
                     if (dispatchThreadDebugInfo != null)
                         dispatchThreadDebugInfo.exeutionPoint = "bk 8";
-                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
+                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.MICROSECONDS)) {
                         System.out.println("Waiting for available space in _localTaskIdToInputQueue");
                     }
+                    System.out.println(String.format("Tuple %s is routed to %s", tuple, route.route));
                     if (dispatchThreadDebugInfo != null)
                         dispatchThreadDebugInfo.exeutionPoint = "bk 9";
 //                    _localTaskIdToInputQueue.get(route.route).put(tuple);
@@ -383,18 +384,22 @@ public class ElasticExecutor implements Serializable {
             return;
         }
 //        Slave.getInstance().sendMessageToMaster("Cleaning...." + this._taskID + "." + routeId);
-        Long startTime = null;
-        while (!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
-            Utils.sleep(1);
-            if (startTime == null) {
-                startTime = System.currentTimeMillis();
-            }
+        System.out.print(String.format("Begin to clean local pending tuples for route %d", routeId));
+        synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
+            Long startTime = null;
+            while (!_localTaskIdToInputQueue.get(routeId).isEmpty()) {
+                Utils.sleep(1);
+                if (startTime == null) {
+                    startTime = System.currentTimeMillis();
+                }
 
-            if (System.currentTimeMillis() - startTime > 1000) {
-                Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() +
-                        "  tuples remaining in " + this._id + "." + routeId);
-                startTime = System.currentTimeMillis();
+                if (System.currentTimeMillis() - startTime > 1000) {
+                    Slave.getInstance().sendMessageToMaster(_localTaskIdToInputQueue.get(routeId).size() +
+                            "  tuples remaining in " + this._id + "." + routeId);
+                    startTime = System.currentTimeMillis();
+                }
             }
         }
+        System.out.print(String.format("Cleaned local pending tuples for route %d", routeId));
     }
 }

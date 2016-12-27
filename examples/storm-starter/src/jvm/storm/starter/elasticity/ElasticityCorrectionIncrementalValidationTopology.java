@@ -30,7 +30,7 @@ public class ElasticityCorrectionIncrementalValidationTopology {
 
         Config conf = new Config();
 
-        conf.setNumWorkers(2);
+        conf.setNumWorkers(1);
 
         StormSubmitter.submitTopologyWithProgressBar(topologyName, conf, builder.createTopology());
     }
