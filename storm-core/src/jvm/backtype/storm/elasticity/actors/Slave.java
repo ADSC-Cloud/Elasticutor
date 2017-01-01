@@ -10,7 +10,6 @@ import backtype.storm.elasticity.message.actormessage.*;
 import backtype.storm.elasticity.message.actormessage.Status;
 import backtype.storm.elasticity.resource.ResourceMonitor;
 import backtype.storm.elasticity.routing.RoutingTable;
-import backtype.storm.elasticity.utils.ConfigReader;
 import backtype.storm.elasticity.utils.Histograms;
 import backtype.storm.elasticity.utils.timer.SmartTimer;
 import backtype.storm.generated.HostNotExistException;
@@ -26,8 +25,6 @@ import scala.concurrent.duration.FiniteDuration;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Random;
@@ -244,7 +241,7 @@ public class Slave extends UntypedActor {
             } else if (message instanceof ReassignBucketToRouteCommand) {
                 System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
                 ReassignBucketToRouteCommand reassignBucketToRouteCommand = (ReassignBucketToRouteCommand) message;
-                ElasticTaskHolder.instance().reassignHashBucketToRoute(reassignBucketToRouteCommand.taskId, reassignBucketToRouteCommand.bucketId,
+                ElasticTaskHolder.instance().performShardReassignment(reassignBucketToRouteCommand.taskId, reassignBucketToRouteCommand.bucketId,
                         reassignBucketToRouteCommand.originalRoute, reassignBucketToRouteCommand.newRoute);
                 getSender().tell("Finished", getSelf());
                 System.out.println("[Elastic]: received  ReassignBucketToRouteCommand!");
@@ -417,8 +414,8 @@ public class Slave extends UntypedActor {
 //            return;
 //        }
         try{
-//            ElasticTaskHolder.instance().migrateSubtaskToRemoteHost(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);
-            ElasticTaskHolder.instance().migrateSubtask(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);
+//            ElasticTaskHolder.instance().migrateTaskToARemoteHost(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);
+            ElasticTaskHolder.instance().migrateTask(taskMigrationCommand._targetHostName, taskMigrationCommand._taskID, taskMigrationCommand._route);
         } catch (Exception e) {
             sendMessageToMaster(e.getMessage());
         }

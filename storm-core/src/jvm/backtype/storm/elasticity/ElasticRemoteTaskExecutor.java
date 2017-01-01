@@ -2,7 +2,7 @@ package backtype.storm.elasticity;
 
 import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.elasticity.config.Config;
-import backtype.storm.elasticity.message.taksmessage.CleanPendingTupleToken;
+import backtype.storm.elasticity.message.taksmessage.CleanPendingTupleRequestToken;
 import backtype.storm.elasticity.message.taksmessage.ITaskMessage;
 import backtype.storm.elasticity.message.taksmessage.PendingTupleCleanedMessage;
 import backtype.storm.elasticity.message.taksmessage.RemoteState;
@@ -115,8 +115,8 @@ public class ElasticRemoteTaskExecutor {
                             if (!handled)
                                 System.err.println("Failed to handle a remote tuple. There is possibly something wrong with the routing table!");
 
-                        } else if(item instanceof CleanPendingTupleToken) {
-                            final CleanPendingTupleToken token = (CleanPendingTupleToken) item;
+                        } else if(item instanceof CleanPendingTupleRequestToken) {
+                            final CleanPendingTupleRequestToken token = (CleanPendingTupleRequestToken) item;
                             //The protocol guarantees that no tuples will be sent to the target route. So a new thread can be created to do the clean job, avoiding
                             // interfering the process of other route.
                             new Thread(new Runnable() {
