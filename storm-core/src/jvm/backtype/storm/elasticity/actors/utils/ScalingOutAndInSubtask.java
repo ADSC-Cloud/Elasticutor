@@ -31,7 +31,7 @@ public class ScalingOutAndInSubtask {
             TProtocol protocol = new TBinaryProtocol(transport);
 
             MasterService.Client thriftClient = new MasterService.Client(protocol);
-
+            int count = 1;
             while(repeat-- > 0) {
                 for(int p = 1; p < maxParallelism; p++) {
                     thriftClient.scalingOutSubtask(taskid);
@@ -41,7 +41,7 @@ public class ScalingOutAndInSubtask {
                     thriftClient.scalingInSubtask(taskid);
                     System.out.println(String.format("Scaled in, parallelism = %d", p - 1));
                 }
-                System.out.println("=====================");
+                System.out.println(String.format("=========== %d ===========", count++));
             }
 
 

@@ -141,10 +141,10 @@ public class ElasticExecutor implements Serializable {
         RoutingTable.Route route = _routingTable.route(key);
 
         final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_id, route.originalRoute);
+        synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
 
         if (dispatchThreadDebugInfo != null)
             dispatchThreadDebugInfo.exeutionPoint = "bk 3";
-        synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
             if (dispatchThreadDebugInfo != null)
                 dispatchThreadDebugInfo.exeutionPoint = "bk 4";
             // The routing table may be updated during the pausing phase, so we should recompute the route.

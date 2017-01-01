@@ -73,4 +73,8 @@ public class KeyValueState implements Serializable {
         }
         return (long) (size / sampleRate);
     }
+
+    public String toString() {
+        return String.format("State with %d entries: \n%s\n", state.size(), state);
+    }
 }
