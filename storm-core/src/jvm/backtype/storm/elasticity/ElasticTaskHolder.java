@@ -1141,14 +1141,6 @@ public class ElasticTaskHolder {
 
         SmartTimer.getInstance().stop("ShardReassignment", "prepare");
 
-        // Update the routing table on the target subtask
-        if (communicator.connectionExisting(taskid + "." + targetRoute)) {
-            communicator.getConnectionOfRoute(taskid + "." + targetRoute).send(taskid,
-                    SerializationUtils.serialize(reassignment));
-        }
-//        else {
-//            handleBucketToRouteReassignment(reassignment);
-//        }
 
 
         SmartTimer.getInstance().start("ShardReassignment", "rerouting");
@@ -1177,6 +1169,19 @@ public class ElasticTaskHolder {
         // before state migration, we should make sure there is no pending tuples for consistency!
         makeSureTargetRouteNoPendingTuples(taskid, orignalRoute);
         SmartTimer.getInstance().stop("ShardReassignment", "state migration 1");
+
+
+        // Update the routing table on the target subtask
+        if (communicator.connectionExisting(taskid + "." + targetRoute)) {
+            communicator.getConnectionOfRoute(taskid + "." + targetRoute).send(taskid,
+                    SerializationUtils.serialize(reassignment));
+        }
+//        else {
+//            handleBucketToRouteReassignment(reassignment);
+//        }
+
+
+        
         // Update the routing table on the source
         SmartTimer.getInstance().start("ShardReassignment", "state migration 2");
         if (communicator.connectionExisting(taskid + "." + orignalRoute)) {
