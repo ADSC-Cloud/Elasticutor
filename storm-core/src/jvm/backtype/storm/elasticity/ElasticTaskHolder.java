@@ -87,7 +87,7 @@ public class ElasticTaskHolder {
 
     IntraExecutorCommunicator communicator = new IntraExecutorCommunicator();
 
-    private class IntraExecutorCommunicator {
+    class IntraExecutorCommunicator {
 
         final int sendingBatchSize = 4096 * 2;
 
@@ -100,7 +100,7 @@ public class ElasticTaskHolder {
         private Map<String, IConnection> _taskIdRouteToSender = new ConcurrentHashMap<>();
         private Map<Integer, IConnection> _executorIdToRemoteTaskExecutorResultSender = new ConcurrentHashMap<>();
         private Map<Integer, IConnection> _remoteExecutorIdToSender = new ConcurrentHashMap<>();
-        public Map<Integer, IConnection> _remoteExecutorIdToPrioritizedSender = new ConcurrentHashMap<>();
+        Map<Integer, IConnection> _remoteExecutorIdToPrioritizedSender = new ConcurrentHashMap<>();
 
         private IConnection _inputReceiver;
         private IConnection _prioritizedInputReceiver;
@@ -108,7 +108,7 @@ public class ElasticTaskHolder {
 
         private IContext _context;
 
-        public ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config
+        ArrayBlockingQueue<ITaskMessage> _sendingQueue = new ArrayBlockingQueue<>(Config
                 .ElasticTaskHolderOutputQueueCapacity);
 
         void addRemoteTaskOutputConnection(int executorId, IConnection connection) {
@@ -699,6 +699,7 @@ public class ElasticTaskHolder {
             }
             getState(remoteState._taskId).update(remoteState._state);
             System.out.println("State (" + remoteState._state.size() + " elements) has been updated!");
+            System.out.println("[2] Remote State: " + remoteState._state);
             if (remoteState.finalized) {
                 System.out.println("Its finalized!");
                 for (int route : remoteState._routes) {
@@ -714,6 +715,7 @@ public class ElasticTaskHolder {
         } else if (_originalTaskIdToRemoteTaskExecutor.containsKey(remoteState._taskId)) {
             getState(remoteState._taskId).update(remoteState._state);
             LOG.info("State (" + remoteState._state.size() + " elements) has been updated!");
+            System.out.println("[3] Remote State: " + remoteState._state);
         }
     }
 
@@ -751,8 +753,6 @@ public class ElasticTaskHolder {
 
     private void handleStateFlushToken(StateFlushToken token) {
 
-        //TODO: there should be some mechanism to guarantee that the state is flushed until all the tuple has been
-        // processed
         KeyValueState partialState = getState(token._taskId).getValidState(token._filter);
         RemoteState remoteState = new RemoteState(token._taskId, partialState.getState(), token._targetRoute);
 
@@ -766,6 +766,7 @@ public class ElasticTaskHolder {
             WorkerMetrics.getInstance().recordStateMigration(bytes.length);
             communicator._remoteExecutorIdToPrioritizedSender.get(token._taskId).send(token._taskId, bytes);
             System.out.print("Remote state is send back to the original elastic holder!");
+            System.out.println("Final State: " + remoteState._state);
         } else {
 
             System.out.print("Remote state does not need to be sent, as the remote state is already in the original " +
@@ -974,7 +975,7 @@ public class ElasticTaskHolder {
             state.markAsFinalized();
             communicator._sendingQueue.put(state);
             System.out.println("Final State for " + taskid + "." + route + " has been sent back");
-
+            System.out.println("Final State: " + state._state);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -1157,13 +1158,14 @@ public class ElasticTaskHolder {
             HashBucketFilter filter = new HashBucketFilter(twoTireRouting.getNumberOfBuckets(), shardId);
             if (!originalHost.equals("local")) {
                 StateFlushToken stateFlushToken = new StateFlushToken(taskid, orignalRoute, filter);
+                final Semaphore semaphore = new Semaphore(0);
+                _taskIdRouteToStateWaitingSemaphore.put(taskid + "." + orignalRoute, semaphore);
                 communicator.getConnectionOfRoute(taskid + "." + orignalRoute).send(taskid, SerializationUtils
                         .serialize(stateFlushToken));
                 System.out.println("State Flush Token has been sent to " + originalHost);
-                _taskIdRouteToStateWaitingSemaphore.put(taskid + "." + orignalRoute, new Semaphore(0));
                 try {
                     System.out.println("Waiting for remote state!");
-                    _taskIdRouteToStateWaitingSemaphore.get(taskid + "." + orignalRoute).acquire();
+                    semaphore.acquire();
                     System.out.println("Remote state arrived!");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -1331,6 +1333,7 @@ public class ElasticTaskHolder {
         routeIdToRemoteHost.put(new RouteId(taskId, routeId), targetHost);
         System.out.println("Sending the ElasticTaskMigrationMessage to " + targetHost);
         final RemoteState remoteState = new RemoteState(-1, migrationMessage.state, -1);
+        System.out.println("[1] Remote State: " + remoteState._state);
         WorkerMetrics.getInstance().recordStateMigration(SerializationUtils.serialize(remoteState).length);
         ElasticTaskMigrationConfirmMessage confirmMessage = (ElasticTaskMigrationConfirmMessage) _slaveActor
                 .sendMessageToNodeAndWaitForResponse(targetHost, migrationMessage);

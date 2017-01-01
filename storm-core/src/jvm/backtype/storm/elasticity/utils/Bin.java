@@ -128,23 +128,6 @@ public class Bin implements Comparator<Bin> {
     }
 
     public static void main(String [] args) {
-        Bin b1 = new Bin(100L);
-        Bin b2 = new Bin(100L);
-        Bin b3 = new Bin(100L);
-
-        b1.put(50L);
-        b2.put(30L);
-        b3.put(60L);
-
-        ArrayList<Bin> bins = new ArrayList<Bin>();
-        bins.add(b1);
-        bins.add(b2);
-        bins.add(b3);
-
-        Collections.sort(bins,new BinComparator());
-
-        for(Bin b: bins) {
-            System.out.println(b.currentSize);
-        }
+        System.out.println(new Integer(431).hashCode() % 256);
     }
 }
