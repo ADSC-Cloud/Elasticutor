@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -58,10 +59,10 @@ public class ElasticExecutor implements Serializable {
 
     class ProtocolAgent {
 
-        private transient HashMap<Integer, Semaphore> _routeIdToCleaningTupleSemaphore;
+        private transient Map<Integer, Semaphore> _routeIdToCleaningTupleSemaphore;
 
         private ProtocolAgent() {
-            this._routeIdToCleaningTupleSemaphore = new HashMap<>();
+            this._routeIdToCleaningTupleSemaphore = new ConcurrentHashMap<>();
         }
 
         void initializeCleaningTupleProtocol(int route) {

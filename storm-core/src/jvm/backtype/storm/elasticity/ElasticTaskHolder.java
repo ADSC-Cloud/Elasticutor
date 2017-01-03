@@ -703,9 +703,9 @@ public class ElasticTaskHolder {
             if (remoteState.finalized) {
                 System.out.println("Its finalized!");
                 for (int route : remoteState._routes) {
-                    if (_taskIdRouteToStateWaitingSemaphore.containsKey(remoteState._taskId + "." + route)) {
+                    if ( _taskIdRouteToStateWaitingSemaphore.containsKey(remoteState._taskId + "." + route)) {
                         _taskIdRouteToStateWaitingSemaphore.get(remoteState._taskId + "." + route).release();
-                        LOG.info("Semaphore for " + remoteState._taskId + "." + route + "has been released");
+                        LOG.info("Semaphore for " + remoteState._taskId + "." + route + " has been released");
                     }
                 }
             } else {
@@ -1115,9 +1115,7 @@ public class ElasticTaskHolder {
         // 1. Pause sending RemoteTuples to the source and target task.
         System.out.println("Begin to pause sending to the two routes...");
         pauseSendingToTargetTask(taskid, targetRoute);
-        System.out.println("Routing on " + targetHost + " is paused!");
         pauseSendingToTargetTask(taskid, orignalRoute);
-        System.out.println("Routing on " + originalHost + " is paused!");
 
 
         SmartTimer.getInstance().stop("ShardReassignment", "rerouting");
@@ -1219,17 +1217,17 @@ public class ElasticTaskHolder {
 //                _taskIdRouteToSendingWaitingSemaphore.get(key).acquire();
                 Semaphore semaphore = _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).get(route);
                 semaphore.acquire();
-//                synchronized (_taskIdRouteToSendingWaitingSemaphore) {
-                if (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask).containsKey(route) &&
-                        _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).get(route).equals(semaphore)) {
-                    _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).remove(route);
-                    System.out.println("Semaphore for " + key + " is removed.");
-                } else {
-                    System.out.println("Semaphore for " + key + " is not removed, because the semaphore is not the " +
-                            "original one!");
+                synchronized (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask)) {
+                    if (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask).containsKey(route) &&
+                            _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).get(route).equals(semaphore)) {
+                        _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).remove(route);
+                        System.out.println("Semaphore for " + key + " is removed.");
+                    } else {
+                        System.out.println("Semaphore for " + key + " is not removed, because the semaphore is not the " +
+
+                                "original one!");
+                    }
                 }
-//                    _taskIdRouteToSendingWaitingSemaphore.remove(key);
-//                }
                 System.out.println(key + " is resumed!!!!!");
                 return true;
             } catch (Exception e) {
