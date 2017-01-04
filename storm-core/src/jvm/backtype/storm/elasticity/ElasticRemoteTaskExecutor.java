@@ -105,7 +105,7 @@ public class ElasticRemoteTaskExecutor {
 
                         if(item instanceof Tuple) {
                             final Tuple input = (Tuple) item;
-                            boolean handled = _elasticExecutor.tryHandleTuple(input, _bolt.getKey(input));
+                            boolean handled = _elasticExecutor.dispatch(input, _bolt.getKey(input));
                             count++;
                             if (count % 10000 == 0) {
                                 System.out.println("A remote tuple for " + _elasticExecutor.get_id() + "." + _elasticExecutor.get_routingTable().route(_bolt.getKey(input)).originalRoute + "has been processed");

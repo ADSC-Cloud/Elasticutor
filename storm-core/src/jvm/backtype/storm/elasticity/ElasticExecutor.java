@@ -32,13 +32,11 @@ import backtype.storm.elasticity.state.*;
  */
 public class ElasticExecutor implements Serializable {
 
-    private RoutingTable _routingTable; // a routing table that partitions the input stream into the tasks.
 
     private BaseElasticBolt _bolt;
 
     private int _id; // The id of this ElasticExecutor.
 
-    private transient HashMap<Integer, ArrayBlockingQueue<Tuple>> _localTaskIdToInputQueue;// The input queues for the tasks.
 
     private transient HashMap<Integer, Thread> _taskIdToThread;
 
@@ -46,16 +44,99 @@ public class ElasticExecutor implements Serializable {
 
     private transient ElasticOutputCollector _elasticOutputCollector;
 
+    // Pending queues for the local tasks.
+    private transient HashMap<Integer, ArrayBlockingQueue<Tuple>> _localTaskIdToInputQueue;
+
+    // A Shared pending queue for all remote tasks.
     private transient ArrayBlockingQueue<ITaskMessage> _reroutingTupleSendingQueue;
+
+    private RoutingTable _routingTable; // a routing table that partitions the input stream into the tasks.
 
     private transient ElasticTaskHolder _taskHolder;
 
     private transient ProtocolAgent _protocolAgent;
 
+    Dispatcher _dispatcher;
+
     private boolean remote = false;
 
     private Random _random;
 
+    class Dispatcher implements Serializable{
+
+
+        boolean dispatch(Tuple tuple, Object key) {
+            return dispatch(tuple, key, null);
+        }
+
+        boolean dispatch(Tuple tuple, Object key, BaseElasticBoltExecutor.DispatchThreadDebugInfo dispatchThreadDebugInfo) {
+            final long signature = _routingTable.getSigniture();
+            RoutingTable.Route route = _routingTable.route(key);
+
+            final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_id, route.originalRoute);
+            synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
+
+                if (dispatchThreadDebugInfo != null)
+                    dispatchThreadDebugInfo.exeutionPoint = "bk 3";
+                if (dispatchThreadDebugInfo != null)
+                    dispatchThreadDebugInfo.exeutionPoint = "bk 4";
+                // The routing table may be updated during the pausing phase, so we should recompute the route.
+                if (paused && signature != _routingTable.getSigniture()) {
+                    route = _routingTable.route(key);
+                }
+                if (dispatchThreadDebugInfo != null)
+                    dispatchThreadDebugInfo.exeutionPoint = "bk 5";
+                if (route.route == RoutingTable.REMOTE) {
+                    if (remote) {
+                        String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticExecutor!\n", key);
+                        str += "target route is " + route.originalRoute + "\n";
+                        str += "target shard is " + GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard + "\n";
+                        str += _routingTable.toString();
+                        Slave.getInstance().sendMessageToMaster(str);
+                        return false;
+                    }
+
+                    if (_random.nextInt(5000) == 0)
+                        System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, route.originalRoute));
+
+                    RemoteTuple remoteTuple = new RemoteTuple(_id, route.originalRoute, tuple);
+                    if (dispatchThreadDebugInfo != null)
+                        dispatchThreadDebugInfo.exeutionPoint = "bk 6";
+                    try {
+                        while(!_reroutingTupleSendingQueue.offer(remoteTuple, 1, TimeUnit.SECONDS)) {
+                            System.out.println("Waiting for available space in _reroutingTupleSendingQueue");
+                        }
+                        if (dispatchThreadDebugInfo != null)
+                            dispatchThreadDebugInfo.exeutionPoint = "bk 7";
+//                    _reroutingTupleSendingQueue.put(remoteTuple);
+//                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                } else {
+                    try {
+                        if (_random.nextInt(5000) == 0)
+                            System.out.println("A tuple is routed to " + route.route + " by the routing table!");
+                        if (dispatchThreadDebugInfo != null)
+                            dispatchThreadDebugInfo.exeutionPoint = "bk 8";
+                        while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
+                            System.out.println("Waiting for available space in _localTaskIdToInputQueue");
+                        }
+//                    System.out.println(String.format("Tuple %s is routed to %s", tuple, route.route));
+                        if (dispatchThreadDebugInfo != null)
+                            dispatchThreadDebugInfo.exeutionPoint = "bk 9";
+//                    _localTaskIdToInputQueue.get(route.route).put(tuple);
+
+//                System.out.println("A tuple is inserted into the processing queue!");
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+            }
+        }
+    }
 
     class ProtocolAgent {
 
@@ -88,6 +169,7 @@ public class ElasticExecutor implements Serializable {
     public ElasticExecutor(BaseElasticBolt bolt, Integer taskID, RoutingTable routingTable) {
         _bolt = bolt;
         _id = taskID;
+        _dispatcher = new Dispatcher();
         _routingTable = routingTable;
     }
 
@@ -110,6 +192,7 @@ public class ElasticExecutor implements Serializable {
     }
 
     public void prepare(ElasticOutputCollector elasticOutputCollector) {
+        _dispatcher = new Dispatcher();
         _localTaskIdToInputQueue = new HashMap<>();
         _taskIdToThread = new HashMap<>();
         _taskIdToQueryRunnable = new HashMap<>();
@@ -132,77 +215,12 @@ public class ElasticExecutor implements Serializable {
         return _routingTable;
     }
 
-    public synchronized boolean tryHandleTuple(Tuple tuple, Object key) {
-        return tryHandleTuple(tuple, key, null);
+    public synchronized boolean dispatch(Tuple tuple, Object key) {
+        return _dispatcher.dispatch(tuple, key);
     }
 
-    public synchronized boolean tryHandleTuple(Tuple tuple, Object key, BaseElasticBoltExecutor.DispatchThreadDebugInfo dispatchThreadDebugInfo) {
-
-        final long signature = _routingTable.getSigniture();
-        RoutingTable.Route route = _routingTable.route(key);
-
-        final boolean paused = _taskHolder.waitIfStreamToTargetSubtaskIsPaused(_id, route.originalRoute);
-        synchronized (_taskHolder._taskIdToRouteToSendingWaitingSemaphore.get(_id)) {
-
-        if (dispatchThreadDebugInfo != null)
-            dispatchThreadDebugInfo.exeutionPoint = "bk 3";
-            if (dispatchThreadDebugInfo != null)
-                dispatchThreadDebugInfo.exeutionPoint = "bk 4";
-            // The routing table may be updated during the pausing phase, so we should recompute the route.
-            if (paused && signature != _routingTable.getSigniture()) {
-                route = _routingTable.route(key);
-            }
-            if (dispatchThreadDebugInfo != null)
-                dispatchThreadDebugInfo.exeutionPoint = "bk 5";
-            if (route.route == RoutingTable.REMOTE) {
-                if (remote) {
-                    String str = String.format("A tuple [key = %s]is routed to remote on a remote ElasticExecutor!\n", key);
-                    str += "target route is " + route.originalRoute + "\n";
-                    str += "target shard is " + GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard + "\n";
-                    str += _routingTable.toString();
-                    Slave.getInstance().sendMessageToMaster(str);
-                    return false;
-                }
-
-                if (_random.nextInt(5000) == 0)
-                    System.out.println(String.format("%s(shard = %d) is routed to %d [remote]!", key.toString(), GlobalHashFunction.getInstance().hash(key) % Config.NumberOfShard, route.originalRoute));
-
-                RemoteTuple remoteTuple = new RemoteTuple(_id, route.originalRoute, tuple);
-                if (dispatchThreadDebugInfo != null)
-                    dispatchThreadDebugInfo.exeutionPoint = "bk 6";
-                try {
-                    while(!_reroutingTupleSendingQueue.offer(remoteTuple, 1, TimeUnit.SECONDS)) {
-                        System.out.println("Waiting for available space in _reroutingTupleSendingQueue");
-                    }
-                    if (dispatchThreadDebugInfo != null)
-                        dispatchThreadDebugInfo.exeutionPoint = "bk 7";
-//                    _reroutingTupleSendingQueue.put(remoteTuple);
-//                    System.out.println("A tuple is inserted into the _reroutingTupleSendingQueue!");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                return true;
-            } else {
-                try {
-                    if (_random.nextInt(5000) == 0)
-                        System.out.println("A tuple is routed to " + route.route + " by the routing table!");
-                    if (dispatchThreadDebugInfo != null)
-                        dispatchThreadDebugInfo.exeutionPoint = "bk 8";
-                    while(!_localTaskIdToInputQueue.get(route.route).offer(tuple, 1, TimeUnit.SECONDS)) {
-                        System.out.println("Waiting for available space in _localTaskIdToInputQueue");
-                    }
-//                    System.out.println(String.format("Tuple %s is routed to %s", tuple, route.route));
-                    if (dispatchThreadDebugInfo != null)
-                        dispatchThreadDebugInfo.exeutionPoint = "bk 9";
-//                    _localTaskIdToInputQueue.get(route.route).put(tuple);
-
-//                System.out.println("A tuple is inserted into the processing queue!");
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                return true;
-            }
-        }
+    public synchronized boolean dispatch(Tuple tuple, Object key, BaseElasticBoltExecutor.DispatchThreadDebugInfo dispatchThreadDebugInfo) {
+        return _dispatcher.dispatch(tuple, key, dispatchThreadDebugInfo);
     }
 
     public void createAndLaunchLocalTasks() {
@@ -245,7 +263,7 @@ public class ElasticExecutor implements Serializable {
      * @param list list of exception routes
      * @return a PartialHashRouting that routes the excepted routes
      */
-    public synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list)
+    private synchronized PartialHashingRouting addExceptionForHashRouting(ArrayList<Integer> list)
             throws InvalidRouteException, RoutingTypeNotSupportedException {
         if ((!(_routingTable instanceof HashingRouting)) && (!(_routingTable instanceof TwoTireRouting))
                 && (!(_routingTable instanceof PartialHashingRouting))) {
@@ -275,7 +293,7 @@ public class ElasticExecutor implements Serializable {
         return ret;
     }
 
-    public PartialHashingRouting addExceptionForHashRouting(int r)
+    PartialHashingRouting addExceptionForHashRouting(int r)
             throws InvalidRouteException, RoutingTypeNotSupportedException {
         ArrayList<Integer> list = new ArrayList<>();
         list.add(r);
@@ -289,7 +307,7 @@ public class ElasticExecutor implements Serializable {
      *
      * @param route route to be added
      */
-    public synchronized void addValidRoute(int route) throws RoutingTypeNotSupportedException {
+    synchronized void addValidRoute(int route) throws RoutingTypeNotSupportedException {
         if (!(_routingTable instanceof PartialHashingRouting)) {
             System.err.println("can only add valid route for PartialHashRouting");
             throw new RoutingTypeNotSupportedException("can only add valid route for PartialHashRouting!");
@@ -303,7 +321,7 @@ public class ElasticExecutor implements Serializable {
 
     }
 
-    public synchronized void setHashBalancedRouting(int numberOfRoutes, Map<Integer, Integer> hashValueToPartition) {
+    synchronized void setHashBalancedRouting(int numberOfRoutes, Map<Integer, Integer> hashValueToPartition) {
         if (numberOfRoutes < 0)
             throw new IllegalArgumentException("number of routes should be positive!");
         withdrawRoutes();
@@ -312,7 +330,7 @@ public class ElasticExecutor implements Serializable {
         createAndLaunchLocalTasks();
     }
 
-    public synchronized void setHashRouting(int numberOfRoutes) throws IllegalArgumentException {
+    synchronized void setHashRouting(int numberOfRoutes) throws IllegalArgumentException {
         long start = System.nanoTime();
         if (numberOfRoutes < 0)
             throw new IllegalArgumentException("number of routes should be positive");

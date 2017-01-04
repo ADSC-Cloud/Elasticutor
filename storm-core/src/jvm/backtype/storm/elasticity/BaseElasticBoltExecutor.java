@@ -236,7 +236,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                             }
 //                            System.out.println("bk 1");
                             dispatchThreadDebugInfo.exeutionPoint="bk 1";
-                            if (!_elasticExecutor.tryHandleTuple(input, key, dispatchThreadDebugInfo)) {
+                            if (!_elasticExecutor.dispatch(input, key, dispatchThreadDebugInfo)) {
                                 System.err.println("elastic task fails to process a tuple!");
                                 assert (false);
                             }
@@ -265,7 +265,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //                                            inputTupleLengthHistory.poll();
 //                                        }
 //                                    }
-//                                    if (!_elasticExecutor.tryHandleTuple(input, key)) {
+//                                    if (!_elasticExecutor.dispatch(input, key)) {
 //                                        System.err.println("elastic task fails to process a tuple!");
 //                                        assert (false);
 //                                    }
@@ -316,12 +316,12 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //            }
 //
 //
-//            if(!_elasticExecutor.tryHandleTuple(input,key)) {
+//            if(!_elasticExecutor.dispatch(input,key)) {
 //                System.err.println("elastic task fails to process a tuple!");
 //                assert(false);
 //            }
 ////
-////        if(_elasticExecutor==null||!_elasticExecutor.tryHandleTuple(input,key))
+////        if(_elasticExecutor==null||!_elasticExecutor.dispatch(input,key))
 ////            _bolt.execute(input, _outputCollector);
 //        _inputRateTracker.notify(1);
 //        } catch (Exception e) {
