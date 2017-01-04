@@ -17,7 +17,7 @@ public class QueryRunnable implements Runnable {
 
     BaseElasticBolt _bolt;
 
-    private boolean _terminationRequest = false;
+    private volatile boolean _terminationRequest = false;
 
     private ArrayBlockingQueue<Tuple> _pendingTuples;
 

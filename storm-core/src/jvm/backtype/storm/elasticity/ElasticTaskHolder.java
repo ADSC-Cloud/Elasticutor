@@ -705,7 +705,7 @@ public class ElasticTaskHolder {
                 for (int route : remoteState._routes) {
                     if ( _taskIdRouteToStateWaitingSemaphore.containsKey(remoteState._taskId + "." + route)) {
                         _taskIdRouteToStateWaitingSemaphore.get(remoteState._taskId + "." + route).release();
-                        LOG.info("Semaphore for " + remoteState._taskId + "." + route + " has been released");
+                        LOG.info("State Semaphore for " + remoteState._taskId + "." + route + " has been released");
                     }
                 }
             } else {
@@ -1481,6 +1481,10 @@ public class ElasticTaskHolder {
 
             if (twoTireRouting == null) {
                 throw new RoutingTypeNotSupportedException("Only support balanced hash routing for scaling in now!");
+            }
+
+            if (twoTireRouting.getNumberOfRoutes() == 1) {
+                return Status.Error("Scaling in fails, since the current DOP is 1!");
             }
 
             int targetSubtaskId = twoTireRouting.getNumberOfRoutes() - 1;
