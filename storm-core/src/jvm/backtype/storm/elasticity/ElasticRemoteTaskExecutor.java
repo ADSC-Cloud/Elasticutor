@@ -105,15 +105,15 @@ public class ElasticRemoteTaskExecutor {
 
                         if(item instanceof Tuple) {
                             final Tuple input = (Tuple) item;
-                            boolean handled = _elasticExecutor.dispatch(input, _bolt.getKey(input));
+
+                            while(!_elasticExecutor.dispatch(input, _bolt.getKey(input))) {
+                                Utils.sleep(1);
+                            }
                             count++;
                             if (count % 10000 == 0) {
                                 System.out.println("A remote tuple for " + _elasticExecutor.get_id() + "." + _elasticExecutor.get_routingTable().route(_bolt.getKey(input)).originalRoute + "has been processed");
                                 count = 0;
                             }
-
-                            if (!handled)
-                                System.err.println("Failed to handle a remote tuple. There is possibly something wrong with the routing table!");
 
                         } else if(item instanceof CleanPendingTupleRequestToken) {
                             final CleanPendingTupleRequestToken token = (CleanPendingTupleRequestToken) item;

@@ -729,7 +729,9 @@ public class ElasticTaskHolder {
                     System.out.println(String.format("Waiting tuples of %d.%d are cleaned!", taskId, routeId));
                 } else {
                     _taskIdRouteToCleanPendingTupleSemaphore.put(taskId + "." + routeId, new Semaphore(0));
-                    communicator._sendingQueue.put(new CleanPendingTupleRequestToken(taskId, routeId));
+//                    communicator._sendingQueue.put(new CleanPendingTupleRequestToken(taskId, routeId));
+                    _bolts.get(taskId).get_elasticExecutor()._dispatcher.dispatchTupleToRemoteRoute(routeId,
+                            new CleanPendingTupleRequestToken(taskId, routeId));
                     System.out.println(String.format("Waiting for pending tuples of %d.%d to be cleaned! [Remote]",
                             taskId, routeId));
                     _taskIdRouteToCleanPendingTupleSemaphore.get(taskId + "." + routeId).acquire();
@@ -1238,23 +1240,28 @@ public class ElasticTaskHolder {
     }
 
     private void pauseSendingToTargetTask(int targetTask, int route) {
-        synchronized (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask)) {
-            _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).put(route, new Semaphore(0));
-        }
-        final String key = targetTask + "." + route;
-        System.out.println("Sending to " + key + " is paused!");
+//        synchronized (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask)) {
+//            _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).put(route, new Semaphore(0));
+//        }
+//        final String key = targetTask + "." + route;
+//        System.out.println("Sending to " + key + " is paused!");
+
+        _bolts.get(targetTask).get_elasticExecutor()._dispatcher.pauseSendingToARoute(route);
+        System.out.println(String.format("Sending to %d.%d is paused!", targetTask, route));
     }
 
     private void resumeSendingToTargetTask(int targetTask, int route) {
-        String key = targetTask + "." + route;
-        synchronized (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask)) {
-            if (!_taskIdToRouteToSendingWaitingSemaphore.get(targetTask).containsKey(route)) {
-                System.out.println("cannot resume " + key + " because the semaphore does not exist!");
-                return;
-            }
-            _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).get(route).release();
-        }
-        System.out.println("Sending to " + key + "is resumed!");
+//        String key = targetTask + "." + route;
+//        synchronized (_taskIdToRouteToSendingWaitingSemaphore.get(targetTask)) {
+//            if (!_taskIdToRouteToSendingWaitingSemaphore.get(targetTask).containsKey(route)) {
+//                System.out.println("cannot resume " + key + " because the semaphore does not exist!");
+//                return;
+//            }
+//            _taskIdToRouteToSendingWaitingSemaphore.get(targetTask).get(route).release();
+//        }
+//        System.out.println("Sending to " + key + " is resumed!");
+        _bolts.get(targetTask).get_elasticExecutor()._dispatcher.resumeSendingToARoute(route);
+        System.out.println(String.format("Sending to %d.%d is resumed!", targetTask, route));
     }
 
     public Histograms getBucketDistributionForBalancedRoutingTable(int taskId) {

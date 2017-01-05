@@ -236,9 +236,9 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                             }
 //                            System.out.println("bk 1");
                             dispatchThreadDebugInfo.exeutionPoint="bk 1";
-                            if (!_elasticExecutor.dispatch(input, key, dispatchThreadDebugInfo)) {
-                                System.err.println("elastic task fails to process a tuple!");
-                                assert (false);
+                            while (!_elasticExecutor.dispatch(input, key, dispatchThreadDebugInfo)) {
+                                System.err.println("Dispatching is abort!");
+                                Utils.sleep(1);
                             }
                             dispatchThreadDebugInfo.exeutionPoint = "bk 10";
                             dispatchThreadDebugInfo.executorCount ++;
