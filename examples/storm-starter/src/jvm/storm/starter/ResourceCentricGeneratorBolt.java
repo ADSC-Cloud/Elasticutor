@@ -40,7 +40,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     private int taskIndex;
     int _prime;
 
-    final boolean enableMannualACK = false;
+    final boolean enableMannualACK = true;
 
     final private int puncutationGenrationFrequency = 400;
     final private int numberOfPendingTuple = 2000;

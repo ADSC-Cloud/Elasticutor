@@ -118,7 +118,7 @@ supervisor.slots.ports:
 #    - 6701
 #    - 6702
  ##   - 6703
-supervisor.childopts: "-Xmx2048m"
+supervisor.childopts: "-Xmx4096m"
 supervisor.run.worker.as.user: false
 #how long supervisor will wait to ensure that a worker process is started
 supervisor.worker.start.timeout.secs: 120
@@ -133,14 +133,14 @@ supervisor.heartbeat.frequency.secs: 5
 supervisor.enable: true
 supervisor.supervisors: []
 supervisor.supervisors.commands: []
-supervisor.memory.capacity.mb: 3072.0
+supervisor.memory.capacity.mb: 4096.0
 #By convention 1 cpu core should be about 100, but this can be adjusted if needed
 # using 100 makes it simple to set the desired value to the capacity measurement
 # for single threaded bolts
 supervisor.cpu.capacity: 800.0
 
 ### worker.* configs are for task workers
-worker.childopts: "-Xmx768m"
+worker.childopts: "-Xmx4096m"
 worker.gc.childopts: ""
 worker.heartbeat.frequency.secs: 1
 

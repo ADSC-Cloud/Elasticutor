@@ -20,9 +20,7 @@ package storm.starter;
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
-import backtype.storm.elasticity.BaseElasticBolt;
-import backtype.storm.elasticity.ElasticOutputCollector;
-import backtype.storm.task.ShellBolt;
+import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.IRichBolt;
@@ -31,9 +29,6 @@ import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
-import backtype.storm.tuple.Values;
-import backtype.storm.utils.Utils;
-import storm.starter.spout.RandomSentenceSpout;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,21 +50,18 @@ public class WordCountTopologyNormal {
       }
   }
 
-  public static class WordCount extends BaseBasicBolt {
+  public static class WordCount implements IRichBolt {
 
-    int sleepTimeInMilics;
+int sleepTimeInNanoseconds;
 
-      Map<String, Integer> counts;
+  Map<String, Integer> counts;
 
-    public WordCount(int sleepTimeInSecs) {
-        this.sleepTimeInMilics = sleepTimeInSecs;
+  OutputCollector collector;
+
+    public WordCount(int sleepTimeInNanoSeconds ) {
+        this.sleepTimeInNanoseconds = sleepTimeInNanoSeconds;
     }
 
-    @Override
-    public void prepare(Map stormConf, TopologyContext context) {
-        counts = new HashMap<String, Integer>();
-
-    }
 
 //    @Override
 //    public void execute(Tuple tuple, ElasticOutputCollector collector) {
@@ -91,10 +83,15 @@ public class WordCountTopologyNormal {
       declarer.declare(new Fields("word", "count"));
     }
 
+      @Override
+      public Map<String, Object> getComponentConfiguration() {
+          return null;
+      }
+
 
       @Override
-      public void execute(Tuple tuple, BasicOutputCollector collector) {
-          ComputationSimulator.compute(sleepTimeInMilics);
+      public void execute(Tuple tuple) {
+          ComputationSimulator.compute(sleepTimeInNanoseconds);
           String word = tuple.getString(0);
           if(!counts.containsKey(word)) {
               counts.put(word, 0);
@@ -102,7 +99,17 @@ public class WordCountTopologyNormal {
           Integer count = counts.get(word);
           count++;
           counts.put(word, count);
-          collector.emit(new Values(word, count));
+//          collector.emit(new Values(word, count));
+      }
+
+      @Override
+      public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
+          counts = new HashMap<String, Integer>();
+      }
+
+      @Override
+      public void cleanup() {
+
       }
   }
 
@@ -122,7 +129,7 @@ public class WordCountTopologyNormal {
   public static void main(String[] args) throws Exception {
 
     if(args.length == 0) {
-      System.out.println("args: topology-name sleep-date-in-millis(for generator) sleep-date-in-millis(for count) [debug|any other]");
+      System.out.println("args: topology-name sleep-date-in-millis(for generator) sleep-date-in-nanoseconds(for count) [debug|any other]");
     }
 
     TopologyBuilder builder = new TopologyBuilder();
@@ -130,7 +137,7 @@ public class WordCountTopologyNormal {
     builder.setSpout("spout", new MyWordCount.WordGenerationSpout(Integer.parseInt(args[1])), 4);
 
     builder.setBolt("count", new WordCount(Integer.parseInt(args[2])), 1).fieldsGrouping("spout", new Fields("word"));
-    builder.setBolt("print", new Printer(), 4).globalGrouping("count");
+//    builder.setBolt("print", new Printer(), 4).globalGrouping("count");
 
     Config conf = new Config();
     if(args.length>2&&args[2].equals("debug"))

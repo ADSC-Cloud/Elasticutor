@@ -89,7 +89,7 @@ public class ElasticTaskHolder {
 
     class IntraExecutorCommunicator {
 
-        final int sendingBatchSize = 4096 * 2;
+        final int sendingBatchSize = 1024;
 
         private KryoTupleSerializer tupleSerializer;
         private KryoTupleDeserializer tupleDeserializer;

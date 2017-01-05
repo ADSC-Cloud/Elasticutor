@@ -31,16 +31,13 @@ public class ResourceCentricZipfComputationTopology {
 
     public static void main(String[] args) throws Exception {
 
-        if(args.length == 0) {
-            System.out.println("args: topology-name number-of-keys skewness sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt");
+        if(args.length != 8) {
+            System.out.println("args: topology-name number-of-keys skewness sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt number-of-workers");
+            return;
         }
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        if(args.length < 3) {
-            System.out.println("the number of args should be at least 1");
-            return;
-        }
         builder.setSpout(Spout, new ZipfSpout(Integer.parseInt(args[1]), Double.parseDouble(args[2])), 1);
 
         builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3]), Integer.parseInt(args[1]), Double.parseDouble(args[2])),Integer.parseInt(args[4]))
@@ -70,10 +67,8 @@ public class ResourceCentricZipfComputationTopology {
         //   if(args.length>2&&args[2].equals("debug"))
         //       conf.setDebug(true);
 
-        if (args != null && args.length > 0) {
-            conf.setNumWorkers(2);
+        conf.setNumWorkers(Integer.parseInt(args[7]));
 
-            StormSubmitter.submitTopologyWithProgressBar(args[0], conf, builder.createTopology());
-        }
+        StormSubmitter.submitTopologyWithProgressBar(args[0], conf, builder.createTopology());
     }
 }

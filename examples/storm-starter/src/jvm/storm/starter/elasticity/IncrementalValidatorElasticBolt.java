@@ -19,9 +19,11 @@ public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
 
     private int computationCostInNanaSeconds;
     private long progress = 0;
+    private boolean acked;
 
-    public IncrementalValidatorElasticBolt(int computationCostInNanaSeconds) {
+    public IncrementalValidatorElasticBolt(int computationCostInNanaSeconds, boolean acked) {
         this.computationCostInNanaSeconds = computationCostInNanaSeconds;
+        this.acked = acked;
     }
 
     @Override
@@ -37,7 +39,6 @@ public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
         if (inStateCount == null) {
             inStateCount = 0L;
             setValueByKey(key, inStateCount);
-            collector.ack(input);
         } else {
             Long count = input.getLong(1);
             if(inStateCount + 1 != count) {
@@ -46,8 +47,9 @@ public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
             }
             inStateCount = count;
             setValueByKey(key, inStateCount);
-            collector.ack(input);
         }
+        if (acked)
+            collector.ack(input);
     }
 
     @Override

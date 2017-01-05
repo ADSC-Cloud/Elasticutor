@@ -64,8 +64,8 @@ public class ElasticRemoteTaskExecutor {
         _inputRoutingThread = new Thread(new InputTupleRouting());
         _inputRoutingThread.start();
         MonitorUtils.instance().registerQueueMonitor(_inputQueue, "Remote Execute Input Queue",
-                Config.RemoteExecutorInputQueueCapacity, null, 0.8, 5);
-        MonitorUtils.instance().registerThreadMonitor(_inputRoutingThread.getId(), "remote dispatch thread", 0.9, 5);
+                Config.RemoteExecutorInputQueueCapacity, 0.2, 0.8, 5);
+        MonitorUtils.instance().registerThreadMonitor(_inputRoutingThread.getId(), "remote dispatch thread", 0.8, 5);
 //        ElasticTaskHolder.instance().createQueueUtilizationMonitoringThread(_inputQueue, "Remote Input Queue", Config.RemoteExecutorInputQueueCapacity, 0.9, 0.1);
 
         System.out.println("processing thread is created!");

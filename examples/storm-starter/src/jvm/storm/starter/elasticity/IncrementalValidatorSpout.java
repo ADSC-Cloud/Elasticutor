@@ -21,8 +21,10 @@ public class IncrementalValidatorSpout extends BaseRichSpout {
     private Map<Integer, Long> keyToCount;
     private int numberOfKeys;
     private Random random;
-    public IncrementalValidatorSpout(int numberOfKeys) {
+    private boolean acked;
+    public IncrementalValidatorSpout(int numberOfKeys, boolean acked) {
         this.numberOfKeys = numberOfKeys;
+        this.acked = acked;
         random = new Random();
     }
 
@@ -41,7 +43,10 @@ public class IncrementalValidatorSpout extends BaseRichSpout {
         final int key = random.nextInt(numberOfKeys);
         final long count = keyToCount.get(key);
         keyToCount.put(key, count + 1);
-        collector.emit(new Values(key, count), new Object());
+        if (acked)
+            collector.emit(new Values(key, count), new Object());
+        else
+            collector.emit(new Values(key, count));
     }
 
     @Override

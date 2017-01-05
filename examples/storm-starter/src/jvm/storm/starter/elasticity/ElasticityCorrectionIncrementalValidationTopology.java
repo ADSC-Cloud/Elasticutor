@@ -12,8 +12,9 @@ import storm.starter.elasticity.util.StateConsistencyValidator;
 public class ElasticityCorrectionIncrementalValidationTopology {
     public static void main(String[] args) throws Exception {
 
-        if(args.length != 4) {
-            System.err.println("topology-name number-of-keys computation-cost-in-nanoseconds number-of-workers");
+        if(args.length != 5) {
+            System.err.println("topology-name number-of-keys computation-cost-in-nanoseconds number-of-workers " +
+                    "acked[1: enable, others: disable]");
             return;
         }
 
@@ -21,12 +22,18 @@ public class ElasticityCorrectionIncrementalValidationTopology {
         final int numberOfKeys = Integer.parseInt(args[1]);
         final int computationCostInNanoSeconds = Integer.parseInt(args[2]);
         final int numberOfWorkers = Integer.parseInt(args[3]);
+        final boolean acked = Integer.parseInt(args[4]) == 1;
+
+        if (acked)
+            System.out.println("Ack is enabled in the topology!");
+        else
+            System.out.println("Ack is disabled in the topology!");
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("spout", new IncrementalValidatorSpout(numberOfKeys));
+        builder.setSpout("spout", new IncrementalValidatorSpout(numberOfKeys, acked), 1).setNumTasks(1);
 
-        builder.setBolt("bolt", new IncrementalValidatorElasticBolt(computationCostInNanoSeconds))
+        builder.setBolt("bolt", new IncrementalValidatorElasticBolt(computationCostInNanoSeconds, acked), 1).setNumTasks(1)
                 .fieldsGrouping("spout", new Fields("key"));
 
         Config conf = new Config();

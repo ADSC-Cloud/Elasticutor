@@ -130,7 +130,9 @@ public class MyWordCount {
             Utils.sleep(_emit_cycles);
 //            long start = System.currentTimeMillis();
 //            System.out.print("sending--->");
-            _collector.emit(new Values(_dictionary.get(_random.nextInt(_dictionary.size())), _random.nextInt(_dictionary.size())));
+            _collector.emit(new Values(_dictionary.get(_random.nextInt(_dictionary.size()))
+                    , _random.nextInt(_dictionary.size())
+            ));
             count++;
 //            monitor.rateTracker.notify(1);
 //            System.out.format("sent %d %d ms\n",count,System.currentTimeMillis() - start);

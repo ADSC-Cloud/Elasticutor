@@ -79,7 +79,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 
     private transient Queue<Integer> outputTupleLengthHistory;
 
-    final int pendingTupleQueueCapacity = 1024;
+    final int pendingTupleQueueCapacity = 1024 * 32;
     private transient BlockingQueue<Tuple> pendingTupleQueue;
 
     private transient ArrayList<Tuple> inputDrainer = new ArrayList<>();
@@ -223,26 +223,32 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                     while (true) {
                         try {
                             dispatchThreadDebugInfo.exeutionPoint="bk 0";
-                            Tuple input = pendingTupleQueue.take();
-                            final Object key = _bolt.getKey(input);
+                            Tuple tuple = pendingTupleQueue.take();
+                            drainer.add(tuple);
+                            pendingTupleQueue.drainTo(drainer, 256);
 
-                            // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
+                            for(Tuple input: drainer) {
+                                final Object key = _bolt.getKey(input);
+
+                                // The following line is comment, as it is used to sample distribution of input streams and the the sampling is only used during the creation of balanced hash routing
 //                                  _keyBucketSampler.record(key);
-                            if (inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
-                                inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
-                                if (inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
-                                    inputTupleLengthHistory.poll();
+                                if (inputTupleCount++ % tupleLengthSampleEveryNTuples == 0) {
+                                    inputTupleLengthHistory.add(tupleSerializer.serialize(input).length);
+                                    if (inputTupleLengthHistory.size() >= Config.numberOfTupleLengthHistoryRecords) {
+                                        inputTupleLengthHistory.poll();
+                                    }
                                 }
-                            }
 //                            System.out.println("bk 1");
-                            dispatchThreadDebugInfo.exeutionPoint="bk 1";
-                            while (!_elasticExecutor.dispatch(input, key, dispatchThreadDebugInfo)) {
-                                System.err.println("Dispatching is abort!");
-                                Utils.sleep(1);
+                                dispatchThreadDebugInfo.exeutionPoint = "bk 1";
+                                while (!_elasticExecutor.dispatch(input, key, dispatchThreadDebugInfo)) {
+//                                System.err.println("Dispatching is abort!");
+                                    Utils.sleep(1);
+                                }
+                                dispatchThreadDebugInfo.exeutionPoint = "bk 10";
+                                dispatchThreadDebugInfo.executorCount++;
+                                _inputRateTracker.notify(1);
                             }
-                            dispatchThreadDebugInfo.exeutionPoint = "bk 10";
-                            dispatchThreadDebugInfo.executorCount ++;
-                            _inputRateTracker.notify(1);
+                            drainer.clear();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
 //                        }
@@ -297,7 +303,6 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //                inputDrainer.clear();
 //            }
         try {
-
             pendingTupleQueue.put(input);
 //            _inputRateTracker.notify(1);
         } catch (InterruptedException e) {
