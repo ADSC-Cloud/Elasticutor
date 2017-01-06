@@ -203,9 +203,9 @@ class Server extends ConnectionWithStatus implements IStatefulObject {
             ArrayList<TaskMessage> msgGroup = messageGroups[receiverId];
             if (null != msgGroup) {
                 //Li Wang
-                while(pendingMessages[receiverId].get() > 1024 * 64) {
-                    Thread.sleep(1);
-                }
+//                while(pendingMessages[receiverId].get() > 1024 * 64) {
+//                    Thread.sleep(1);
+//                }
                 message_queue[receiverId].put(msgGroup);
                 pendingMessages[receiverId].addAndGet(msgGroup.size());
             }

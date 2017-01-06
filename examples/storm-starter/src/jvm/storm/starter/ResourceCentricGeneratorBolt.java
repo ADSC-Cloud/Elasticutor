@@ -42,9 +42,9 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     final boolean enableMannualACK = true;
 
-    final private int puncutationGenrationFrequency = 400;
-    final private int numberOfPendingTuple = 2000;
-    private long currentPuncutationLowWaterMarker = 0;
+    final private int puncutationGenrationFrequency = 5000;
+    final private int numberOfPendingTuple = 200000;
+    private volatile long currentPuncutationLowWaterMarker = 0;
 //    private long currentPuncutationLowWaterMarker = 10000000L;
 //    private long progressPermission = 200;
     private long progressPermission = Long.MAX_VALUE;
@@ -80,8 +80,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     public class emitKey implements Runnable {
 
-        boolean terminating = false;
-        boolean terminated = false;
+        volatile boolean terminating = false;
+        volatile boolean terminated = false;
 
         public void terminate() {
             terminating = true;
@@ -126,6 +126,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
 
                     _collector.emitDirect(targetTaskId, new Values(key));
+//                    Slave.getInstance().logOnMaster(String.format("Key %d is emitted!", key));
 
 
 //                    _collector.emit(new Values(String.valueOf(key)));
@@ -270,10 +271,12 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                         currentPuncutationLowWaterMarker = pendingPruncutationUpdates.get(0);
                         pendingPruncutationUpdates.remove(0);
                         updated = true;
-//                        Slave.getInstance().sendMessageToMaster(String.format("Pending is updated to %d by history.", currentPuncutationLowWaterMarker));
+//                        Slave.getInstance().sendMessageToMaster(String.format("Pending %d is updated by history.", currentPuncutationLowWaterMarker));
                     } else if(pendingPruncutationUpdates.get(0) < currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
+                        long value = pendingPruncutationUpdates.get(0);
                         // clean the old punctuation.
                         pendingPruncutationUpdates.remove(0);
+//                        Slave.getInstance().sendMessageToMaster(String.format("old %d is removed!", value));
                     } else {
                         updated = false;
                     }

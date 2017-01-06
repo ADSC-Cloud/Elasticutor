@@ -152,7 +152,10 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 
     @Override
     public Serializable getKey(Tuple tuple) {
-        return tuple.getInteger(0);
+        if (tuple.getSourceStreamId().equals(Utils.DEFAULT_STREAM_ID))
+            return tuple.getInteger(0);
+        else
+            return -1;
     }
 
 }
