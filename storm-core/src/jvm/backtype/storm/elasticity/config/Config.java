@@ -1,5 +1,7 @@
 package backtype.storm.elasticity.config;
 
+import backtype.storm.utils.Utils;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
@@ -9,6 +11,11 @@ import java.util.Map;
  */
 public class Config {
 
+    public static void overrideFromStormConfigFile() {
+        Map conf = Utils.readStormConfig();
+        overrideFromStormConf(conf);
+        System.out.println(String.format("Master ip is %s", masterIp));
+    }
 
     public static void overrideFromStormConf(Map conf) {
 
