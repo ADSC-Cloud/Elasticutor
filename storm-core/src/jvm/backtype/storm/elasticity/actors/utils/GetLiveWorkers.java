@@ -12,7 +12,7 @@ import org.apache.thrift.transport.TTransport;
  */
 public class GetLiveWorkers {
     public static void main(String[] args) {
-
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();

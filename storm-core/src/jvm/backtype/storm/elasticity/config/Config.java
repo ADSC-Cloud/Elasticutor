@@ -14,7 +14,6 @@ public class Config {
     public static void overrideFromStormConfigFile() {
         Map conf = Utils.readStormConfig();
         overrideFromStormConf(conf);
-        System.out.println(String.format("Master ip is %s", masterIp));
     }
 
     public static void overrideFromStormConf(Map conf) {
@@ -22,7 +21,6 @@ public class Config {
         try {
             InetAddress address = InetAddress.getByName(readString(conf, "nimbus.host", "NimbusHostNameNotGiven"));
             masterIp = address.getHostAddress();
-            System.out.println("Master ip: " + masterIp);
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
@@ -30,7 +28,6 @@ public class Config {
         try {
             InetAddress address = InetAddress.getByName(readString(conf, "elasticity.slave.ip", "SlaveIpNotGiven"));
             slaveIp = address.getHostAddress();
-            System.out.println("Slave ip: " + slaveIp);
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }

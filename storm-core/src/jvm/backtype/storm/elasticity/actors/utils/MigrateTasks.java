@@ -17,7 +17,7 @@ public class MigrateTasks {
             System.out.println("args: orignal-hostname, target-hostname, task-id, route, repeat (default = 1) ");
             return;
         }
-
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();

@@ -21,7 +21,7 @@ public class ScalingOutSubtask {
         if(args.length == 2) {
             repeat = Integer.parseInt(args[1]);
         }
-
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();
