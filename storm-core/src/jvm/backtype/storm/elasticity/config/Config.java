@@ -77,7 +77,7 @@ public class Config {
 
     /* The following are the default value */
 
-    public static int NumberOfShard = 256;
+    public static int NumberOfShard = 512;
 
     public static double RoutingSamplingRate = 1.0;
 
