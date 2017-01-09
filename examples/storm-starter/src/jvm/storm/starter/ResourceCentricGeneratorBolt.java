@@ -42,8 +42,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     final boolean enableMannualACK = true;
 
-    final private int puncutationGenrationFrequency = 5000;
-    final private int numberOfPendingTuple = 200000;
+    final private int puncutationGenrationFrequency = 500;
+    final private int numberOfPendingTuple = 2000;
     private volatile long currentPuncutationLowWaterMarker = 0;
 //    private long currentPuncutationLowWaterMarker = 10000000L;
 //    private long progressPermission = 200;
