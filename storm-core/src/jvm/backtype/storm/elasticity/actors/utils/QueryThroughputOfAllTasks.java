@@ -34,6 +34,7 @@ public class QueryThroughputOfAllTasks {
         }
         FileOutputStream fop = new FileOutputStream(file);
         int length = args.length;
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         List<Integer> tasks = new ArrayList<Integer>();
         for(int i = 0; i < length-1; ++i){

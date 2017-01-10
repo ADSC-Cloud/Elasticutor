@@ -23,7 +23,7 @@ public class ScalingOutAndInSubtask {
         }
         int taskid = Integer.parseInt(args[0]);
         int maxParallelism = Integer.parseInt(args[1]);
-
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();

@@ -16,7 +16,7 @@ public class ScalingInSubtask {
             System.out.println("args: task-id");
             return;
         }
-
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();

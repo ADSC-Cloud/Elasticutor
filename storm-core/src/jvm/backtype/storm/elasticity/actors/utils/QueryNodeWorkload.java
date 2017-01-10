@@ -20,6 +20,7 @@ public class QueryNodeWorkload {
         }
 
         int taskid = Integer.parseInt(args[0]);
+        backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
         try {
             transport.open();
