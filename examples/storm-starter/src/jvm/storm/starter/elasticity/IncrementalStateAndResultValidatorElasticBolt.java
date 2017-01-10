@@ -5,8 +5,9 @@ import backtype.storm.elasticity.ElasticOutputCollector;
 import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
-import storm.starter.elasticity.util.StateConsistencyValidator;
+import backtype.storm.tuple.Values;
 import storm.starter.util.ComputationSimulator;
 
 import java.io.Serializable;
@@ -15,15 +16,18 @@ import java.util.Map;
 /**
  * Created by robert on 22/12/16.
  */
-public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
+public class IncrementalStateAndResultValidatorElasticBolt extends BaseElasticBolt {
 
     private int computationCostInNanaSeconds;
     private long progress = 0;
     private boolean acked;
+    private int resultFrequency;
 
-    public IncrementalValidatorElasticBolt(int computationCostInNanaSeconds, boolean acked) {
+    public IncrementalStateAndResultValidatorElasticBolt(int computationCostInNanaSeconds, boolean acked,
+                                                         int resultFrequency) {
         this.computationCostInNanaSeconds = computationCostInNanaSeconds;
         this.acked = acked;
+        this.resultFrequency = resultFrequency;
     }
 
     @Override
@@ -48,13 +52,16 @@ public class IncrementalValidatorElasticBolt extends BaseElasticBolt {
             inStateCount = count;
             setValueByKey(key, inStateCount);
         }
+        if (inStateCount % resultFrequency == 0) {
+            collector.emit(new Values(key, inStateCount));
+        }
         if (acked)
             collector.ack(input);
     }
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-
+        declarer.declare(new Fields("key", "count"));
     }
 
     @Override

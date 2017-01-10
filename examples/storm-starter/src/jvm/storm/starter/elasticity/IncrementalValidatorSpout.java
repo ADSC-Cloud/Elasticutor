@@ -7,6 +7,8 @@ import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
 import storm.starter.elasticity.util.StateConsistencyValidator;
+import storm.starter.util.KeyGenerator;
+import storm.starter.util.RoundRobinKeyGenerator;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +24,7 @@ public class IncrementalValidatorSpout extends BaseRichSpout {
     private int numberOfKeys;
     private Random random;
     private boolean acked;
+    private KeyGenerator generator;
     public IncrementalValidatorSpout(int numberOfKeys, boolean acked) {
         this.numberOfKeys = numberOfKeys;
         this.acked = acked;
@@ -36,11 +39,12 @@ public class IncrementalValidatorSpout extends BaseRichSpout {
         for(int i = 0; i < numberOfKeys; i++) {
             keyToCount.put(i, 0L);
         }
+        generator = new RoundRobinKeyGenerator(numberOfKeys);
     }
 
     @Override
     public void nextTuple() {
-        final int key = random.nextInt(numberOfKeys);
+        final int key = generator.generate();
         final long count = keyToCount.get(key);
         keyToCount.put(key, count + 1);
         if (acked)
