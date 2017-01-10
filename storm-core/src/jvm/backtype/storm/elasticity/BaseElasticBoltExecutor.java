@@ -138,7 +138,6 @@ public class BaseElasticBoltExecutor implements IRichBolt {
         }
 
         private void handle(TupleExecuteResult result) {
-//            System.out.println("Tuple content: "+result._streamId + " " + result._inputTuple + " "+ result._outputTuple);
             switch (result._commandType) {
                 case TupleExecuteResult.Emit:
                     _outputRateTracker.notify(1);
@@ -161,7 +160,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                 case TupleExecuteResult.Ack:
                     _originalCollector.ack(result._inputTuple);
                 default:
-                    assert(false);
+                    throw new UnsupportedOperationException("Unsupported TupleExecuteResult type!");
             }
         }
     }

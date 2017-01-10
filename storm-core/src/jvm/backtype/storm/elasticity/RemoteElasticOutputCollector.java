@@ -1,13 +1,11 @@
 package backtype.storm.elasticity;
 
-import akka.remote.Ack;
 import backtype.storm.elasticity.message.taksmessage.RemoteTupleExecuteResult;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.utils.Utils;
 
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Created by Robert on 11/14/15.
@@ -64,7 +62,11 @@ public class RemoteElasticOutputCollector extends ElasticOutputCollector {
 
     @Override
     public void emitDirect(int taskId, String streamId, List<Object> tuple) {
-        assert(false);
+        try {
+            _outputQueue.put(new RemoteTupleExecuteResult(_originalTaskId, taskId, streamId, null, tuple, RemoteTupleExecuteResult.EmitDirect));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

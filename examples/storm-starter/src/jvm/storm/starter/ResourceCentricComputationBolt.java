@@ -102,7 +102,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
             long pruncutation = tuple.getLong(0);
             int taskid = tuple.getInteger(1);
             collector.emitDirect(taskid, ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm, new Values(pruncutation));
-//            Slave.getInstance().logOnMaster(String.format("PRUN %d is sent back to %d by %d", pruncutation, taskid, executorId));
+//            Slave.getInstance().logOnMaster(String.format("[PUNC:] PRUN %d is sent back to %d by %d", pruncutation, taskid, this.taskId));
         }
     }
 

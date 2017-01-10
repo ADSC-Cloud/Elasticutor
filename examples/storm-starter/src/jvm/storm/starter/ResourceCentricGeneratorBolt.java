@@ -42,8 +42,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     final boolean enableMannualACK = true;
 
-    final private int puncutationGenrationFrequency = 500;
-    final private int numberOfPendingTuple = 2000;
+    final private int puncutationGenrationFrequency = 50000;
+    final private int numberOfPendingTuple = 200000;
     private volatile long currentPuncutationLowWaterMarker = 0;
 //    private long currentPuncutationLowWaterMarker = 10000000L;
 //    private long progressPermission = 200;
@@ -98,10 +98,11 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                         Thread.sleep(1);
                     }
 
-                    if(enableMannualACK)
+                    if(enableMannualACK) {
                         while (count >= currentPuncutationLowWaterMarker + numberOfPendingTuple && !terminating) {
                             Thread.sleep(1);
                         }
+                    }
 
                     if (terminating) {
                         terminated = true;
@@ -120,7 +121,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     if(enableMannualACK) {
                         if (count % puncutationGenrationFrequency == 0) {
                             _collector.emitDirect(targetTaskId, ResourceCentricZipfComputationTopology.PuncutationEmitStream, new Values(count, taskId));
-//                         Slave.getInstance().logOnMaster(String.format("PUNC %d is sent to %d", count, targetTaskId));
+//                         Slave.getInstance().logOnMaster(String.format("[PUNC:] PUNC %d is sent to %d", count, targetTaskId));
                         }
                     }
 
@@ -259,10 +260,10 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             progressPermission = Math.max(progressPermission, tuple.getLong(0));
 //            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", executorId, progressPermission));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm)) {
-            long receivedPuncutation = tuple.getLong(0);
-            if(currentPuncutationLowWaterMarker + puncutationGenrationFrequency == receivedPuncutation) {
-                currentPuncutationLowWaterMarker = receivedPuncutation;
-//                Slave.getInstance().sendMessageToMaster(String.format("Pending is updated to %d.", currentPuncutationLowWaterMarker));
+            long receivedPunctuation = tuple.getLong(0);
+            if(currentPuncutationLowWaterMarker + puncutationGenrationFrequency == receivedPunctuation) {
+                currentPuncutationLowWaterMarker = receivedPunctuation;
+//                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending is updated to %d.", currentPuncutationLowWaterMarker));
                 // resolve pending puntucations
                 Collections.sort(pendingPruncutationUpdates);
                 boolean updated = true;
@@ -271,20 +272,21 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                         currentPuncutationLowWaterMarker = pendingPruncutationUpdates.get(0);
                         pendingPruncutationUpdates.remove(0);
                         updated = true;
-//                        Slave.getInstance().sendMessageToMaster(String.format("Pending %d is updated by history.", currentPuncutationLowWaterMarker));
+//                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending %d is updated by history.", currentPuncutationLowWaterMarker));
                     } else if(pendingPruncutationUpdates.get(0) < currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
                         long value = pendingPruncutationUpdates.get(0);
                         // clean the old punctuation.
                         pendingPruncutationUpdates.remove(0);
-//                        Slave.getInstance().sendMessageToMaster(String.format("old %d is removed!", value));
+                        updated = true;
+//                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] old %d is removed!", value));
                     } else {
                         updated = false;
                     }
                 }
 
             } else {
-                pendingPruncutationUpdates.add(receivedPuncutation);
-//                Slave.getInstance().sendMessageToMaster(String.format("%d is added into pending history!", receivedPuncutation));
+                pendingPruncutationUpdates.add(receivedPunctuation);
+//                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] %d is added into pending history!", receivedPunctuation));
             }
 
 //            currentPuncutationLowWaterMarker = Math.max(currentPuncutationLowWaterMarker, tuple.getLong(0));
