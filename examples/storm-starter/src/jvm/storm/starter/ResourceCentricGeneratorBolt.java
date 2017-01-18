@@ -13,6 +13,7 @@ import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 import org.apache.commons.collections.map.HashedMap;
 import storm.starter.util.KeyGenerator;
+import storm.starter.util.Permutation;
 import storm.starter.util.RoundRobinKeyGenerator;
 import storm.starter.util.ZipfKeyGenerator;
 
@@ -30,10 +31,13 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     Thread _emitThread;
     transient ThroughputMonitor monitor;
     transient TwoTireRouting routingTable;
+    transient Permutation permutation;
 
     private int numberOfComputingTasks;
     private List<Integer> downStreamTaskIds;
     private List<Long> pendingPruncutationUpdates;
+
+    private int payloadSize;
 
     private int _emit_cycles;
     private int taskId;
@@ -42,8 +46,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     final boolean enableMannualACK = true;
 
-    final private int puncutationGenrationFrequency = 50000;
-    final private int numberOfPendingTuple = 200000;
+    final private int puncutationGenrationFrequency = 500;
+    final private int numberOfPendingTuple = 1000;
     private volatile long currentPuncutationLowWaterMarker = 0;
 //    private long currentPuncutationLowWaterMarker = 10000000L;
 //    private long progressPermission = 200;
@@ -57,25 +61,26 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     emitKey _emitKey;
 
-    public class ChangeDistribution implements Runnable {
+//    public class ChangeDistribution implements Runnable {
+//
+//        @Override
+//        public void run() {
+//            while (true) {
+//                Utils.sleep(30000);
+//                Random rand = new Random(1);
+//                System.out.println("distribution has been changed");
+//                _prime = primes[rand.nextInt(primes.length)];
+//                Slave.getInstance().logOnMaster("distribution has been changed");
+//            }
+//        }
+//    }
 
-        @Override
-        public void run() {
-            while (true) {
-                Utils.sleep(30000);
-                Random rand = new Random(1);
-                System.out.println("distribution has been changed");
-                _prime = primes[rand.nextInt(primes.length)];
-                Slave.getInstance().logOnMaster("distribution has been changed");
-            }
-        }
-    }
-
-    public ResourceCentricGeneratorBolt(int emit_cycles, int numberOfKeys, double exponent){
+    public ResourceCentricGeneratorBolt(int emit_cycles, int numberOfKeys, double exponent, int payloadSize){
         _emit_cycles = emit_cycles;
         this._numberOfElements = numberOfKeys;
         this._exponent = exponent;
         _prime = 41;
+        this.payloadSize = payloadSize;
     }
 
     public class emitKey implements Runnable {
@@ -93,6 +98,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         public void run() {
             try {
                 long count = 0;
+                byte[] payload = new byte[payloadSize];
                 while (true) {
                     while (count >= progressPermission && !terminating) {
                         Thread.sleep(1);
@@ -113,6 +119,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
                     Thread.sleep(_emit_cycles);
                     int key = _generator.generate();
+                    key = permutation.get(key);
+
 //                    key = ((key + _prime) * 577) % 13477;
 
                     int pos = routingTable.route(key).originalRoute;
@@ -126,7 +134,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
                     }
 
 
-                    _collector.emitDirect(targetTaskId, new Values(key));
+                    _collector.emitDirect(targetTaskId, new Values(key, payload));
 //                    Slave.getInstance().logOnMaster(String.format("Key %d is emitted!", key));
 
 
@@ -149,7 +157,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         }
     }
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("numberOfTask"));
+        declarer.declare(new Fields("key", "payload"));
         declarer.declareStream("statics", new Fields("executorId", "Histogram"));
         declarer.declareStream(ResourceCentricZipfComputationTopology.StateMigrationCommandStream, new Fields("sourceTaskId","targetTaskId", "shardId"));
         declarer.declareStream(ResourceCentricZipfComputationTopology.FeedbackStream, new Fields("command", "arg1"));
@@ -176,6 +184,8 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         numberOfComputingTasks = downStreamTaskIds.size();
 
         routingTable = new TwoTireRouting(numberOfComputingTasks);
+
+        permutation = new Permutation(_numberOfElements, _prime);
 
         createOrUpdateGenerator();
 
@@ -220,6 +230,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             int seed = tuple.getInteger(2);
             createOrUpdateGenerator();
             _prime = primes[seed % (primes.length)];
+            permutation.shuffle(seed);
             Slave.getInstance().logOnMaster(String.format("Prime is changed to %d on task %d, keys = %d, exp = %1.2f", _prime, taskId, _numberOfElements, _exponent ));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.UpstreamCommand)) {
             String command  = tuple.getString(0);
@@ -255,6 +266,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             }
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.SeedUpdateStream)) {
             _prime = primes[Math.abs(tuple.getInteger(0) % primes.length)];
+            permutation.shuffle(_prime);
             Slave.getInstance().logOnMaster(String.format("Prime is changed to %d on task %d", _prime, taskId ));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.CountPermissionStream)) {
             progressPermission = Math.max(progressPermission, tuple.getLong(0));

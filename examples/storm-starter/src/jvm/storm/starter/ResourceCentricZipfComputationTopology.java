@@ -31,8 +31,8 @@ public class ResourceCentricZipfComputationTopology {
 
     public static void main(String[] args) throws Exception {
 
-        if(args.length != 8) {
-            System.out.println("args: topology-name number-of-keys skewness sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt number-of-workers");
+        if(args.length != 9) {
+            System.out.println("args: topology-name number-of-keys skewness sleep-date-in-millis-of-generator-bolt number-of-task-of-generator-bolt sleep-date-in-millisec-of-computation-bolt number-of-task-of-computatoin-bolt number-of-workers payload-size");
             return;
         }
 
@@ -40,7 +40,7 @@ public class ResourceCentricZipfComputationTopology {
 
         builder.setSpout(Spout, new ZipfSpout(Integer.parseInt(args[1]), Double.parseDouble(args[2])), 1);
 
-        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3]), Integer.parseInt(args[1]), Double.parseDouble(args[2])),Integer.parseInt(args[4]))
+        builder.setBolt(GeneratorBolt, new ResourceCentricGeneratorBolt(Integer.parseInt(args[3]), Integer.parseInt(args[1]), Double.parseDouble(args[2]), Integer.parseInt(args[8])),Integer.parseInt(args[4]))
                 .allGrouping(Spout)
                 .allGrouping(Controller, UpstreamCommand)
                 .allGrouping(Controller, SeedUpdateStream)

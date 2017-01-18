@@ -15,6 +15,6 @@ public class ZipfKeyGenerator implements KeyGenerator {
 
     @Override
     public int generate() {
-        return distribution.sample();
+        return distribution.sample() - 1; // minus 1 is to ensure that the key starting from 0 instead of 1.
     }
 }

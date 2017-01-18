@@ -102,7 +102,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
             public void run() {
                 while(true) {
                     try {
-                        Thread.sleep(50000);
+                        Thread.sleep(5000);
                         Histograms histograms = new Histograms();
                         for(int taskId: taskToHistogram.keySet()) {
                             histograms.merge(taskToHistogram.get(taskId));

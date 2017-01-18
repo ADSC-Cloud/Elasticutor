@@ -1,7 +1,6 @@
 package storm.starter;
 
 import backtype.storm.elasticity.actors.Slave;
-import backtype.storm.generated.MasterService;
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
@@ -9,13 +8,11 @@ import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
-import org.apache.commons.math3.distribution.ZipfDistribution;
 import org.apache.thrift.TException;
 import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TThreadPoolServer;
 import org.apache.thrift.transport.TServerSocket;
 import org.apache.thrift.transport.TServerTransport;
-import storm.starter.surveillance.ThroughputMonitor;
 
 import java.util.Map;
 import java.util.Random;
@@ -30,7 +27,7 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
     double _exponent;
     static ZipfSpout _instance;
     Thread _changeDistributionThread;
-    long _sleepTimeInMilics;
+    long _seedUpdateCyclesInMilics;
     int _seed;
     public ZipfSpout(){
 
@@ -45,7 +42,7 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
         public void run() {
             Random random = new Random(0);
             while (true) {
-                Utils.sleep(_sleepTimeInMilics);
+                Utils.sleep(_seedUpdateCyclesInMilics);
                 _seed = Math.abs(random.nextInt());
                 _collector.emit(new Values(String.valueOf(_numberOfElements), String.valueOf(_exponent), _seed));
             }
@@ -88,7 +85,7 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
 //        _numberOfElements = 1000;
 //        _exponent = 1;
         _instance = this;
-        _sleepTimeInMilics = 30000;
+        _seedUpdateCyclesInMilics = 30000;
         _seed = Math.abs(new Random().nextInt());
      //   createThriftServiceThread();
         _collector.emit(new Values(String.valueOf(_numberOfElements), String.valueOf(_exponent), (_seed)));

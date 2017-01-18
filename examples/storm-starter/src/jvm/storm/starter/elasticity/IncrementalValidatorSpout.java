@@ -44,8 +44,8 @@ public class IncrementalValidatorSpout extends BaseRichSpout {
 
     @Override
     public void nextTuple() {
-        final int key = generator.generate();
-        final long count = keyToCount.get(key);
+        final Integer key = generator.generate();
+        final Long count = keyToCount.get(key);
         keyToCount.put(key, count + 1);
         if (acked)
             collector.emit(new Values(key, count), new Object());

@@ -69,7 +69,8 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 //            setValueByKey(number, count);
 //            collector.emit(tuple, new Values(number, count));
 
-            ElasticTopologySimulator.ComputationSimulator.compute((long)sleepTimeInNanoSeconds - (System.nanoTime() - start));
+//            ElasticTopologySimulator.ComputationSimulator.compute((long)sleepTimeInNanoSeconds - (System.nanoTime() - start));
+            Utils.sleep(((long)sleepTimeInNanoSeconds)/1000000);
         } else if (streamId.equals(ResourceCentricZipfComputationTopology.StateMigrationCommandStream)) {
             receivedMigrationCommand++;
             int sourceTaskOffset = tuple.getInteger(0);
