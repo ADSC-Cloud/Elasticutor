@@ -37,8 +37,12 @@ public class TwoTireRouting implements RoutingTable {
     }
 
     public TwoTireRouting(int numberOfRoutes) {
+        this(numberOfRoutes, Config.NumberOfShard);
+    }
+
+    public TwoTireRouting(int numberOfRoutes, int numberOfShards) {
         this.numberOfRoutes = numberOfRoutes;
-        numberOfShards = Config.NumberOfShard;
+        this.numberOfShards = numberOfShards;
         shardToRoute = new HashMap<>();
         for(int i = 0; i < numberOfShards; i++) {
             shardToRoute.put(i, i % numberOfRoutes);
@@ -55,6 +59,10 @@ public class TwoTireRouting implements RoutingTable {
     public void enableSampling() {
         sample = new SlideWindowKeyBucketSample(numberOfShards);
         sample.enable();
+    }
+
+    public int computeShard(Object key) {
+        return hashFunction.hash(key) % numberOfShards;
     }
 
     @Override

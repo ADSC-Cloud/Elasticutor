@@ -57,7 +57,7 @@ public class QueryRunnable implements Runnable {
             }
         });
         forceSampleThread.start();
-        rateTracker = new RateTracker(5000, 5);
+        rateTracker = new RateTracker(Config.TaskThroughputMonitorDurationInMilliseconds, 5);
         this.protocolAgent = protocolAgent;
     }
 

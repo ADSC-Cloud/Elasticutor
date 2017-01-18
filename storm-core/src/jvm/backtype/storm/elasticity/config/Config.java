@@ -81,17 +81,21 @@ public class Config {
 
     public static double RoutingSamplingRate = 1.0;
 
-    public static int SubtaskInputQueueCapacity = 256;
+    public static int SubtaskInputQueueCapacity = 8;
 
     public static int ResultQueueCapacity = 256;
 
-    public static int RemoteExecutorInputQueueCapacity = 256;
+    public static int RemoteExecutorInputQueueCapacity = 32;
 
     public static int ElasticTaskHolderOutputQueueCapacity = 1024;
 
     public static int StateCheckPointingCycleInSecs = 10;
 
     public static int CreateBalancedHashRoutingSamplingTimeInSecs = 3;
+
+    public static int TaskThroughputMonitorDurationInMilliseconds = 1000;
+
+    public static int ExecutorKeyDistributionMonitorDurationgInMilliseconds = 1000;
 
     public static int ProcessCPULoadReportCycleInSecs = 1;
 

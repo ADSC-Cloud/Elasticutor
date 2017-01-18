@@ -1,5 +1,6 @@
 package backtype.storm.elasticity.utils;
 
+import backtype.storm.elasticity.config.Config;
 import backtype.storm.utils.RateTracker;
 
 import java.io.Serializable;
@@ -17,7 +18,7 @@ public class SlideWindowKeyBucketSample implements Serializable {
 
     private boolean enabled = false;
 
-    static private int sampleLength = 5000;
+    static private int sampleLength = Config.ExecutorKeyDistributionMonitorDurationgInMilliseconds;
 
     static private int numberOfSlides = 5;
 
