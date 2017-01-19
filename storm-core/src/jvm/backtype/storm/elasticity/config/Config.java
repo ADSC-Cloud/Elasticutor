@@ -75,7 +75,7 @@ public class Config {
     }
 
 
-    /* The following are the default value */
+    /* The following are the default values */
 
     public static int NumberOfShard = 256;
 
