@@ -131,7 +131,7 @@ public class Config {
 
     public static int CPUBudget = 0;
 
-    public static String masterIp = "192.168.0.207";
+    public static String masterIp = "172.31.17.217";
 
     public static String slaveIp;
 
