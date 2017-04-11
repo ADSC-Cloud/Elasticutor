@@ -1801,7 +1801,7 @@ public class ElasticTaskHolder {
 // (executorId).getMetrics().getAverageLatency());
 //                            sendMessageToMaster("Task: " + executorId + " rate: " + _bolts.get(executorId)
 // .getInputRate());
-//                            sendMessageToMaster("Task " + executorId + ":  " + currentParallelism + "---->" +
+//                            sendMessageToMaster("Task " + taskId + ":  " + currentParallelism + "---->" +
 // desirableParallelism);
                             if (currentParallelism < desirableParallelism) {
                                 ExecutorScalingOutRequestMessage requestMessage = new

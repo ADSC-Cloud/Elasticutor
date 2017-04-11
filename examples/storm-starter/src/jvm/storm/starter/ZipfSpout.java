@@ -82,8 +82,6 @@ public class ZipfSpout extends BaseRichSpout implements ChangeDistributionServic
 
     public void open(Map conf, TopologyContext context, SpoutOutputCollector collector){
         _collector = collector;
-//        _numberOfElements = 1000;
-//        _exponent = 1;
         _instance = this;
         _seedUpdateCyclesInMilics = 30000;
         _seed = Math.abs(new Random().nextInt());

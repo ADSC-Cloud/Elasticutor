@@ -107,7 +107,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
                         for(int taskId: taskToHistogram.keySet()) {
                             histograms.merge(taskToHistogram.get(taskId));
                         }
-                        Slave.getInstance().logOnMaster(String.format("Rate: %f, Latency: %d", getRate(), getLatency()));
+//                        Slave.getInstance().logOnMaster(String.format("Rate: %f, Latency: %d", getRate(), getLatency()));
 
 //                        Slave.getInstance().logOnMaster(histograms.toString());
 
@@ -130,8 +130,8 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
                             min = Math.min(min, count);
                             max = Math.max(max, count);
                         }
-                        Slave.getInstance().logOnMaster(str);
-                        Slave.getInstance().logOnMaster(String.format("Max: %d Min: %d avg: %d |p = %2.4f", max, min, sum/routeCount.length, sum/routeCount.length / (double)max));
+//                        Slave.getInstance().logOnMaster(str);
+//                        Slave.getInstance().logOnMaster(String.format("Max: %d Min: %d avg: %d |p = %2.4f", max, min, sum/routeCount.length, sum/routeCount.length / (double)max));
 
 
                     } catch (Exception e) {
@@ -145,7 +145,7 @@ public class ResourceCentricControllerBolt implements IRichBolt, ResourceCentric
 
 //        createAutomaticScalingThread();
 
-        createLoadBalancingThread();
+//        createLoadBalancingThread();
 //        createSeedUpdatingThread();
     }
 

@@ -193,6 +193,10 @@ public class ElasticScheduler {
 
                             if(Config.DisableStateSizeInfo) {
                                 SchedulerComparisonHelper.disableStateSizeInfo(elasticExecutorInfos);
+                            } else {
+                                for (ElasticExecutorInfo info: currentElasticExecutorInfos.values()) {
+                                    info.stateSize = Math.max(1, info.stateSize);
+                                }
                             }
 
                             if(Config.DisableDataIntensivenessInfo) {
@@ -470,6 +474,8 @@ public class ElasticScheduler {
 //                System.out.println(master.queryDistribution(executorId));
             }
 
+//            System.out.println("load balance is triggered.");
+
             if(skewness) {
 
 //                ShardReassignmentPlan plan = getCompleteShardToTaskMapping(executorId, histograms, numberOfRoutes, twoTireRouting.getBucketToRouteMapping());
@@ -496,7 +502,7 @@ public class ElasticScheduler {
                     return "ERROR!!!";
                 }
             } else {
-//                System.out.println("No shard reassignment will be performed!");
+                System.out.println("No shard reassignment will be performed!");
                 return "The workload is not skewed!";
             }
         }

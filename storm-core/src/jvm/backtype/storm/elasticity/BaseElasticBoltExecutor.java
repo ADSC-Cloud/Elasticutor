@@ -95,7 +95,18 @@ public class BaseElasticBoltExecutor implements IRichBolt {
             return String.format("Point: %s, count: %d", exeutionPoint, executorCount);
         }
     }
+
+    // debug info
+
+    public class MainExecuteThreadDebugInfo implements Serializable {
+        String executionPoint = "";
+        public String toString() {
+            return executionPoint;
+        }
+    }
+
     DispatchThreadDebugInfo dispatchThreadDebugInfo = new DispatchThreadDebugInfo();
+    MainExecuteThreadDebugInfo mainExecuteThreadDebugInfo = new MainExecuteThreadDebugInfo();
 
     public BaseElasticBoltExecutor(BaseElasticBolt bolt) {
         _bolt = bolt;
@@ -159,8 +170,9 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                     break;
                 case TupleExecuteResult.Ack:
                     _originalCollector.ack(result._inputTuple);
+                    break;
                 default:
-                    throw new UnsupportedOperationException("Unsupported TupleExecuteResult type!");
+                    throw new UnsupportedOperationException("Unsupported TupleExecuteResult type : " + result.toString());
             }
         }
     }
@@ -203,6 +215,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                 while(true) {
                     Utils.sleep(10000);
                     System.out.println(dispatchThreadDebugInfo.toString());
+                    System.out.println(mainExecuteThreadDebugInfo.toString());
                 }
             }
         }).start();
@@ -223,6 +236,7 @@ public class BaseElasticBoltExecutor implements IRichBolt {
                         try {
                             dispatchThreadDebugInfo.exeutionPoint="bk 0";
                             Tuple tuple = pendingTupleQueue.take();
+
                             drainer.add(tuple);
                             pendingTupleQueue.drainTo(drainer, 256);
 
@@ -302,9 +316,11 @@ public class BaseElasticBoltExecutor implements IRichBolt {
 //                inputDrainer.clear();
 //            }
         try {
+            mainExecuteThreadDebugInfo.executionPoint  = "ElasticExecutor.Execute: before put!";
             pendingTupleQueue.put(input);
+            mainExecuteThreadDebugInfo.executionPoint = "ElasticExecutor.Execute: after put!";
 //            _inputRateTracker.notify(1);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 //        try {

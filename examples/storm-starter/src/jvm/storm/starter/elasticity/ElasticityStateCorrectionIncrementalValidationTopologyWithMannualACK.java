@@ -8,7 +8,7 @@ import backtype.storm.tuple.Fields;
 /**
  * Created by robert on 22/12/16.
  */
-public class ElasticityStateCorrectionIncrementalValidationTopology {
+public class ElasticityStateCorrectionIncrementalValidationTopologyWithMannualACK {
     public static void main(String[] args) throws Exception {
 
         if(args.length != 5) {
@@ -30,10 +30,12 @@ public class ElasticityStateCorrectionIncrementalValidationTopology {
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("spout", new IncrementalValidatorSpout(numberOfKeys, acked), 1).setNumTasks(1);
+        builder.setBolt("generator", new IncrementalValidatorBoltWithMannualACK(numberOfKeys, 10000, 100000), 1)
+            .directGrouping("bolt", "backpressure");
 
-        builder.setBolt("bolt", new IncrementalStateValidatorElasticBolt(computationCostInNanoSeconds, acked), 2)
-                .fieldsGrouping("spout", new Fields("key"));
+        builder.setBolt("bolt", new IncrementalStateValidatorElasticBoltWithMannualACK(computationCostInNanoSeconds, acked), 2)
+                .fieldsGrouping("generator", new Fields("key"))
+                .shuffleGrouping("generator", "backpressure");
 
         Config conf = new Config();
 

@@ -108,7 +108,9 @@ public class ElasticExecutorInfo {
 
     public String toString() {
         String ret = "";
-        ret += String.format("{%d, %d, %.2f, %d -> %d}", taskId, stateSize, dataIntensivenessFactor, getCurrentParallelism(), desirableParallelism);
+        ret += String.format("{Task %d, HostIp %s, Cores %s, StateSize %d, DataIntensity %.2f, %d -> %d}", taskId,
+                hostIp, allocatedCores, stateSize, dataIntensivenessFactor, getCurrentParallelism(),
+                desirableParallelism);
 //        ret += String.format("ID = %d, State size = %d, Data-intensiveness = %.2f", executorId, stateSize, dataIntensivenessFactor);
 
         return ret;

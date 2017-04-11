@@ -64,8 +64,6 @@ public class ResourceCentricZipfComputationTopology {
 
 
         Config conf = new Config();
-        //   if(args.length>2&&args[2].equals("debug"))
-        //       conf.setDebug(true);
 
         conf.setNumWorkers(Integer.parseInt(args[7]));
 

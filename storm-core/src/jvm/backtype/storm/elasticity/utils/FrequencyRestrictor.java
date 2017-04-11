@@ -6,6 +6,7 @@ import backtype.storm.utils.RateTracker;
 import backtype.storm.utils.Utils;
 import scala.sys.process.Process;
 
+import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.util.Timer;
 import java.util.TimerTask;

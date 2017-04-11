@@ -14,6 +14,10 @@ import java.util.function.Predicate;
  */
 public class LocalityAndMigrationCostAwareScheduling {
     public List<SchedulingAction> schedule(List<ElasticExecutorInfo> executorInfos, List<String> freeCPUCores, double dataIntensivenessThreshold) {
+
+        System.out.println("ExecutorInfos: " + executorInfos.toString());
+        System.out.println("Free CPU cores: " + freeCPUCores);
+
         List<SchedulingAction> actions = new ArrayList<>();
 
         // create a virtual elastic executor with all the free CPU cores.
@@ -216,6 +220,8 @@ public class LocalityAndMigrationCostAwareScheduling {
         check2();
         check3();
         check4();
+        check5();
+        check6();
     }
 
     static void check1() {
@@ -340,5 +346,67 @@ public class LocalityAndMigrationCostAwareScheduling {
             System.out.println("Check 4 passed!");
         else
             System.out.println("Check 4 failed!");
+    }
+
+    static void check5() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.1.192", 8024, 200.0);
+        executorInfo1.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo1);
+
+        ElasticExecutorInfo executorInfo2 = new ElasticExecutorInfo(1, "10.10.10.10", 2048, 100.0);
+        executorInfo2.updateDesirableParallelism(1);
+        executorInfos.add(executorInfo2);
+
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("x");
+        freeCPUCores.add("192.168.1.192");
+        freeCPUCores.add("x");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 250.0);
+
+        System.out.println(actions);
+
+        String expectedResult = "[Scaling out: 0 -> 192.168.1.192]";
+        if(actions.toString().equals(expectedResult))
+            System.out.println("Check 5 passed!");
+        else
+            System.out.println("Check 5 failed!");
+    }
+
+    static void check6() {
+        List<ElasticExecutorInfo> executorInfos = new ArrayList<>();
+        ElasticExecutorInfo executorInfo1 = new ElasticExecutorInfo(0, "192.168.0.207", 1, 200.0);
+        executorInfo1.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo1);
+
+        ElasticExecutorInfo executorInfo2 = new ElasticExecutorInfo(1, "192.168.0.18", 1, 100.0);
+        executorInfo2.updateDesirableParallelism(2);
+        executorInfos.add(executorInfo2);
+
+        List<String> freeCPUCores = new ArrayList<>();
+        freeCPUCores.add("192.168.0.207");
+        freeCPUCores.add("192.168.0.207");
+        freeCPUCores.add("192.168.0.207");
+        freeCPUCores.add("192.168.0.207");
+        freeCPUCores.add("192.168.0.16");
+        freeCPUCores.add("192.168.0.16");
+        freeCPUCores.add("192.168.0.16");
+        freeCPUCores.add("192.168.0.16");
+        freeCPUCores.add("192.168.0.16");
+        freeCPUCores.add("192.168.0.18");
+        freeCPUCores.add("192.168.0.18");
+        freeCPUCores.add("192.168.0.18");
+        freeCPUCores.add("192.168.0.18");
+        LocalityAndMigrationCostAwareScheduling scheduling = new LocalityAndMigrationCostAwareScheduling();
+        List<SchedulingAction> actions = scheduling.schedule(executorInfos, freeCPUCores, 250.0);
+
+        System.out.println(actions);
+
+        String expectedResult = "[Scaling out: 0 -> 192.168.0.207, Scaling out: 1 -> 192.168.0.18]";
+        if(actions.toString().equals(expectedResult))
+            System.out.println("Check 5 passed!");
+        else
+            System.out.println("Check 5 failed!");
     }
 }

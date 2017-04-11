@@ -7,6 +7,7 @@ import backtype.storm.elasticity.ElasticOutputCollector;
 import backtype.storm.elasticity.actors.Slave;
 import backtype.storm.elasticity.config.Config;
 import backtype.storm.elasticity.state.KeyValueState;
+import backtype.storm.elasticity.utils.FrequencyRestrictor;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Fields;
@@ -18,6 +19,7 @@ import backtype.storm.utils.Utils;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class ResourceCentricComputationBolt extends BaseElasticBolt{
@@ -36,6 +38,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 
     private int recordLatencyEveryNTuples;
     private long count;
+
 
     public ResourceCentricComputationBolt(int sleepTimeInNanoSeconds) {
         this.sleepTimeInNanoSeconds = sleepTimeInNanoSeconds;
@@ -70,7 +73,16 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
 //            collector.emit(tuple, new Values(number, count));
 
 //            ElasticTopologySimulator.ComputationSimulator.compute((long)sleepTimeInNanoSeconds - (System.nanoTime() - start));
-            Utils.sleep(((long)sleepTimeInNanoSeconds)/1000000);
+//            Utils.sleep(((long)sleepTimeInNanoSeconds)/1000000);
+            if (sleepTimeInNanoSeconds <= 1000000) {
+                if (count % (1000000 / sleepTimeInNanoSeconds) == 0) {
+                    Utils.sleep(1);
+                }
+            } else {
+                Utils.sleep(sleepTimeInNanoSeconds / 1000000);
+            }
+
+
         } else if (streamId.equals(ResourceCentricZipfComputationTopology.StateMigrationCommandStream)) {
             receivedMigrationCommand++;
             int sourceTaskOffset = tuple.getInteger(0);
@@ -103,7 +115,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
             long pruncutation = tuple.getLong(0);
             int taskid = tuple.getInteger(1);
             collector.emitDirect(taskid, ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm, new Values(pruncutation));
-//            Slave.getInstance().logOnMaster(String.format("[PUNC:] PRUN %d is sent back to %d by %d", pruncutation, taskid, this.taskId));
+            Slave.getInstance().logOnMaster(String.format("[PUNC:] PRUN %d is sent back to %d by %d", pruncutation, taskid, this.taskId));
         }
     }
 
@@ -149,6 +161,7 @@ public class ResourceCentricComputationBolt extends BaseElasticBolt{
                 }
             }
         }).start();
+
     }
 
     @Override

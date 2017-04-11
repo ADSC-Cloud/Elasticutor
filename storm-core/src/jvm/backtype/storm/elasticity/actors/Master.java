@@ -449,12 +449,14 @@ public class Master extends UntypedActor implements MasterService.Iface {
                 preferredIp = getIpForWorkerLogicalName(workerHostName);
             }
 
+            System.out.println(String.format("try to allocate a CPU core on %s for Task %d", preferredIp, taskid));
             targetIp = ResourceManager.instance().computationResource.allocateProcessOnPreferredNode(preferredIp);
 
             if(targetIp == null) {
                 System.err.println("There is not enough computation resources for scaling out!");
                 return;
             }
+            System.out.println(String.format("A cpu core is allocated on %s for Task %d", targetIp, taskid));
 
             if(!_taskToCoreLocations.containsKey(taskid)) {
                 _taskToCoreLocations.put(taskid, new ArrayList<String>());

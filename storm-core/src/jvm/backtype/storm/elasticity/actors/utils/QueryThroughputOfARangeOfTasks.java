@@ -26,11 +26,7 @@ public class QueryThroughputOfARangeOfTasks {
             System.out.println("args: start-taskid, end-task-id, cycle-in-secs");
             return;
         }
-        File file = new File("./throughput.txt");
-        if (!file.exists()) {
-            file.createNewFile();
-        }
-        FileOutputStream fop = new FileOutputStream(file);
+
         int length = args.length;
         backtype.storm.elasticity.config.Config.overrideFromStormConfigFile();
         TTransport transport = new TSocket(backtype.storm.elasticity.config.Config.masterIp,9090);
@@ -76,12 +72,6 @@ public class QueryThroughputOfARangeOfTasks {
                      //   }
                     }
                     System.out.println("Throughput of all tasks is " + throughputSum);
-                    String content = ""+throughputSum;
-                    String newline = System.getProperty("line.separator");
-                    byte[] nextlineInBytes = newline.getBytes();
-                    byte[] contentInBytes = content.getBytes();
-                    fop.write(contentInBytes);
-                    fop.write(nextlineInBytes);
                 } catch (TException e ) {
                     e.printStackTrace();
                 }

@@ -12,10 +12,8 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 import org.apache.commons.collections.map.HashedMap;
-import storm.starter.util.KeyGenerator;
-import storm.starter.util.Permutation;
-import storm.starter.util.RoundRobinKeyGenerator;
-import storm.starter.util.ZipfKeyGenerator;
+import storm.starter.util.*;
+import storm.trident.operation.builtin.Debug;
 
 import java.util.*;
 
@@ -44,14 +42,15 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
     private int taskIndex;
     int _prime;
 
-    final boolean enableMannualACK = false;
+    final boolean enableMannualACK = true;
 
-    final private int puncutationGenrationFrequency = 500;
-    final private int numberOfPendingTuple = 1000;
+    transient private BackPressure backPressure;
+
+    final private int puncutationGenrationFrequency = 5000;
+    final private int numberOfPendingTuple = 100000;
     private volatile long currentPuncutationLowWaterMarker = 0;
 //    private long currentPuncutationLowWaterMarker = 10000000L;
 //    private long progressPermission = 200;
-    private long progressPermission = Long.MAX_VALUE;
 
    final int[] primes = {104179, 104183, 104207, 104231, 104233, 104239, 104243, 104281, 104287, 104297,
      104309, 104311, 104323, 104327, 104347, 104369, 104381, 104383, 104393, 104399,
@@ -87,6 +86,12 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
         volatile boolean terminating = false;
         volatile boolean terminated = false;
+        volatile DebugInfo debugInfo = new DebugInfo();
+
+        public class DebugInfo{
+            long count;
+            String position;
+        }
 
         public void terminate() {
             terminating = true;
@@ -97,57 +102,87 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
         public void run() {
             try {
+                Long backPressureTupleId = 0L;
                 long count = 0;
+                debugInfo.count = 0;
                 byte[] payload = new byte[payloadSize];
-                while (true) {
-                    while (count >= progressPermission && !terminating) {
-                        Thread.sleep(1);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            while (true) {
+                                Thread.sleep(5000);
+                                System.out.println(String.format("emit debug info: count: %d, position: %s", debugInfo.count, debugInfo.position));
+                                System.out.println(String.format("BackPressure info: %s", backPressure.toString()));
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
+                }).start();
+                while (true) {
+                    debugInfo.position = "emit bk 1";
 
-                    if(enableMannualACK) {
-                        while (count >= currentPuncutationLowWaterMarker + numberOfPendingTuple && !terminating) {
+//                    if(enableMannualACK) {
+//                        backPressure.tryAcquireNextTupleId();
+//                        while (count >= currentPuncutationLowWaterMarker + numberOfPendingTuple && !terminating) {
+//                            Thread.sleep(1);
+//                        }
+//                    }
+
+                    if (enableMannualACK) {
+                        backPressureTupleId = backPressure.tryAcquireNextTupleId();
+                        while (backPressureTupleId == null && !terminating) {
                             Thread.sleep(1);
+                            backPressureTupleId = backPressure.tryAcquireNextTupleId();
                         }
                     }
 
+
+
+                    debugInfo.position = "emit bk 2";
                     if (terminating) {
                         terminated = true;
                         terminating = false;
                         break;
                     }
-                    Random random = new Random();
-
+                    debugInfo.position = "emit bk 3";
                     Thread.sleep(_emit_cycles);
-                    int key = _generator.generate();
+                    int key = generate();
                     key = permutation.get(key);
 
-//                    key = ((key + _prime) * 577) % 13477;
-
                     int pos = routingTable.route(key).originalRoute;
+                    if (pos < 0 || pos >= downStreamTaskIds.size()) {
+                        System.out.println(String.format("ERROR pos: key : %d, pos: %d", key, pos));
+                        Slave.getInstance().logOnMaster(String.format("ERROR pos: key : %d, pos: %d", key, pos));
+                    }
                     int targetTaskId = downStreamTaskIds.get(pos);
 
                     if(enableMannualACK) {
-                        if (count % puncutationGenrationFrequency == 0) {
+//                        if (count % puncutationGenrationFrequency == 0) {
+//                            _collector.emitDirect(targetTaskId, ResourceCentricZipfComputationTopology.PuncutationEmitStream, new Values(count, taskId));
+//                            Slave.getInstance().logOnMaster(String.format("[PUNC:] PUNC %d is sent to %d", count, targetTaskId));
+//                        }
+                        if (backPressureTupleId % puncutationGenrationFrequency ==0) {
                             _collector.emitDirect(targetTaskId, ResourceCentricZipfComputationTopology.PuncutationEmitStream, new Values(count, taskId));
-//                         Slave.getInstance().logOnMaster(String.format("[PUNC:] PUNC %d is sent to %d", count, targetTaskId));
+                            Slave.getInstance().logOnMaster(String.format("[PUNC:] PUNC %d is sent to %d", count, targetTaskId));
                         }
                     }
 
-
+                    debugInfo.position = "emit bk 4";
                     _collector.emitDirect(targetTaskId, new Values(key, payload));
-//                    Slave.getInstance().logOnMaster(String.format("Key %d is emitted!", key));
+                    debugInfo.position = "emit bk 5";
 
-
-//                    _collector.emit(new Values(String.valueOf(key)));
                     monitor.rateTracker.notify(1);
 
                     count++;
-                    if (count % 1000 == 0) {
-//                    Slave.getInstance().logOnMaster(String.format("Task %d: %d", executorId, count));
+                    if (count % 10000 == 0) {
+                    Slave.getInstance().logOnMaster(String.format("Task %d: generates %d tuples.", taskId, count));
                     }
                     if (count % 50 == 0) {
                         _collector.emit(ResourceCentricZipfComputationTopology.CountReportSteram, new Values(taskIndex, count));
                     }
+                    debugInfo.position = "emit bk 6";
                 }
             } catch (InterruptedException ee) {
 //                Slave.getInstance().sendMessageToMaster("I was interrupted!");
@@ -156,6 +191,12 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             }
         }
     }
+
+    private synchronized int generate() {
+        return _generator.generate();
+    }
+
+
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declare(new Fields("key", "payload"));
         declarer.declareStream("statics", new Fields("executorId", "Histogram"));
@@ -195,6 +236,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
         _emitThread.start();
         pendingPruncutationUpdates = new ArrayList<>();
 //        new Thread(new ChangeDistribution()).start();
+        backPressure = new BackPressure(puncutationGenrationFrequency, numberOfPendingTuple);
     }
 
     public Map getComponentConfiguration(){ return new HashedMap();}
@@ -211,7 +253,7 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
 
     public void cleanup() { }
 
-    private void createOrUpdateGenerator() {
+    private synchronized void createOrUpdateGenerator() {
         if(_exponent > 0) {
             Slave.getInstance().logOnMaster("Zipf generator is used!");
             _generator = new ZipfKeyGenerator(_numberOfElements, _exponent);
@@ -269,37 +311,40 @@ public class ResourceCentricGeneratorBolt implements IRichBolt{
             permutation.shuffle(_prime);
             Slave.getInstance().logOnMaster(String.format("Prime is changed to %d on task %d", _prime, taskId ));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.CountPermissionStream)) {
-            progressPermission = Math.max(progressPermission, tuple.getLong(0));
 //            Slave.getInstance().logOnMaster(String.format("Progress on task %d is updated to %d", executorId, progressPermission));
         } else if (tuple.getSourceStreamId().equals(ResourceCentricZipfComputationTopology.PuncutationFeedbackStreawm)) {
             long receivedPunctuation = tuple.getLong(0);
-            if(currentPuncutationLowWaterMarker + puncutationGenrationFrequency == receivedPunctuation) {
-                currentPuncutationLowWaterMarker = receivedPunctuation;
-//                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending is updated to %d.", currentPuncutationLowWaterMarker));
-                // resolve pending puntucations
-                Collections.sort(pendingPruncutationUpdates);
-                boolean updated = true;
-                while(updated && pendingPruncutationUpdates.size() > 0) {
-                    if(pendingPruncutationUpdates.get(0) == currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
-                        currentPuncutationLowWaterMarker = pendingPruncutationUpdates.get(0);
-                        pendingPruncutationUpdates.remove(0);
-                        updated = true;
-//                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending %d is updated by history.", currentPuncutationLowWaterMarker));
-                    } else if(pendingPruncutationUpdates.get(0) < currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
-                        long value = pendingPruncutationUpdates.get(0);
-                        // clean the old punctuation.
-                        pendingPruncutationUpdates.remove(0);
-                        updated = true;
-//                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] old %d is removed!", value));
-                    } else {
-                        updated = false;
-                    }
-                }
+            backPressure.ack(receivedPunctuation);
+            /////////////////// new mechanism ///////////////////
+//            if(currentPuncutationLowWaterMarker + puncutationGenrationFrequency == receivedPunctuation) {
+//                currentPuncutationLowWaterMarker = receivedPunctuation;
+////                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending is updated to %d.", currentPuncutationLowWaterMarker));
+//                // resolve pending puntucations
+//                Collections.sort(pendingPruncutationUpdates);
+//                boolean updated = true;
+//                while(updated && pendingPruncutationUpdates.size() > 0) {
+//                    if(pendingPruncutationUpdates.get(0) == currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
+//                        currentPuncutationLowWaterMarker = pendingPruncutationUpdates.get(0);
+//                        pendingPruncutationUpdates.remove(0);
+//                        updated = true;
+////                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] Pending %d is updated by history.", currentPuncutationLowWaterMarker));
+//                    } else if(pendingPruncutationUpdates.get(0) < currentPuncutationLowWaterMarker + puncutationGenrationFrequency) {
+//                        long value = pendingPruncutationUpdates.get(0);
+//                        // clean the old punctuation.
+//                        pendingPruncutationUpdates.remove(0);
+//                        updated = true;
+////                        Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] old %d is removed!", value));
+//                    } else {
+//                        updated = false;
+//                    }
+//                }
+//
+//            } else {
+//                pendingPruncutationUpdates.add(receivedPunctuation);
+////                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] %d is added into pending history!", receivedPunctuation));
+//            }
+            /////////////////// old mechanism ///////////////////
 
-            } else {
-                pendingPruncutationUpdates.add(receivedPunctuation);
-//                Slave.getInstance().sendMessageToMaster(String.format("[PUNC:] %d is added into pending history!", receivedPunctuation));
-            }
 
 //            currentPuncutationLowWaterMarker = Math.max(currentPuncutationLowWaterMarker, tuple.getLong(0));
 //            Slave.getInstance().logOnMaster(String.format("PRUC is updated to %d", currentPuncutationLowWaterMarker));
